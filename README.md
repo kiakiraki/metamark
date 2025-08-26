@@ -1,36 +1,131 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MetaMark
 
-## Getting Started
+Add beautiful EXIF metadata overlays to your photos.
 
-First, run the development server:
+## ✨ Features
+
+- **Privacy-First**: Complete client-side processing - your photos never leave your browser
+- **Professional Templates**: Beautiful, customizable overlay designs for camera metadata
+- **EXIF Extraction**: Automatically reads camera settings, lens info, and shooting parameters
+- **High-Quality Output**: Export up to 4K resolution with pristine quality
+- **Modern Interface**: Clean, intuitive design with drag & drop functionality
+
+## 🚀 Quick Start
+
+### Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Production Build
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Build for production (static export for Cloudflare Pages)
+npm run build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Output will be in the 'out/' directory
+```
 
-## Learn More
+## 📷 How It Works
 
-To learn more about Next.js, take a look at the following resources:
+1. **Upload**: Drag & drop your photos (JPEG, PNG, HEIC)
+2. **Extract**: Automatic EXIF metadata extraction
+3. **Style**: Choose from professional templates
+4. **Export**: Download high-quality images with beautiful overlays
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠 Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Framework**: Next.js 15 with App Router
+- **UI**: React 19 + TypeScript + Tailwind CSS
+- **Animations**: Framer Motion
+- **State Management**: Zustand
+- **EXIF Processing**: exifr
+- **File Upload**: react-dropzone
+- **Deployment**: Cloudflare Pages
 
-## Deploy on Vercel
+## 🔧 Configuration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Cloudflare Pages Setup
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Build Command**: `npm run build`
+2. **Output Directory**: `out`
+3. **Environment Variables**:
+   - `NODE_VERSION`: 20
+   - `NPM_VERSION`: 10
+   - `NEXT_TELEMETRY_DISABLED`: 1
+
+### Security Headers
+
+The app includes security headers in `_headers`:
+- Content Security Policy
+- Cross-Origin Policies
+- XSS Protection
+
+## 📁 Project Structure
+
+```
+src/
+├── app/              # Next.js App Router pages
+├── components/       # React components
+│   ├── upload/      # File upload components
+│   ├── editor/      # Canvas and template components
+│   └── export/      # Export controls
+├── services/        # Business logic (EXIF, Canvas, etc.)
+├── stores/          # Zustand state management
+├── templates/       # Design templates
+├── types/           # TypeScript definitions
+└── utils/           # Utility functions
+```
+
+## 🎨 Templates
+
+- **Minimal**: Clean, essential information
+- **Classic**: Traditional film-inspired layout
+- **Modern**: Contemporary design with icons
+- *More templates coming soon...*
+
+## 📋 Requirements
+
+- Node.js 20+
+- Modern browser with Canvas API support
+- JavaScript enabled (client-side processing)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Make changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🎯 MVP Status
+
+✅ **Completed Features**:
+- Image upload with drag & drop
+- EXIF metadata extraction
+- Basic template system (Minimal, Classic, Modern)
+- Canvas rendering with overlays
+- High-quality image export
+- Responsive UI with dark/light themes
+- Static site generation for Cloudflare Pages
+
+🔄 **Coming Next**:
+- Additional templates (Film, Technical)
+- Custom template editor
+- Batch processing
+- RAW image support
+
+---
+
+Built with ❤️ for photographers by photographers.
