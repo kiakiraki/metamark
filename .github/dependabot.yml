@@ -25,7 +25,9 @@ updates:
       # React/Next.js ecosystem
       react-ecosystem:
         patterns:
-          - 'react*'
+          - 'react'
+          - 'react-dom'
+          - 'react-*'
           - 'next'
           - '@next/*'
           - 'eslint-config-next'
