@@ -2,10 +2,9 @@ name = "metamark"
 compatibility_date = "2025-08-27"
 pages_build_output_dir = "dist"
 
-[env.production]
-routes = [
-  { pattern = "metamark.kiakiraki.dev/*", custom_domain = true }
-]
+[[env.production.routes]]
+pattern = "metamark.kiakiraki.dev/*"
+custom_domain = true
 
 [[env.production.routes]]
 pattern = "metamark.kiakiraki.dev"
