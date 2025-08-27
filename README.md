@@ -117,22 +117,24 @@ MIT License - see [LICENSE](LICENSE) for details.
 This project is configured for deployment to Cloudflare Workers with custom domain support:
 
 1. **Prerequisites**:
+
    ```bash
    # Install Wrangler CLI
    npm install -g wrangler
-   
+
    # Login to Cloudflare
    wrangler login
    ```
 
 2. **Deployment Commands**:
+
    ```bash
    # Build the project
    npm run build
-   
+
    # Deploy to preview
    npm run deploy:preview
-   
+
    # Deploy to production (metamark.kiakiraki.dev)
    npm run deploy:production
    ```
