@@ -116,18 +116,22 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 This project is configured for deployment to Cloudflare Pages:
 
-1. **Build Settings**:
+1. **Build Settings** (in Cloudflare Pages dashboard):
    - Framework preset: `Next.js (Static HTML Export)`
    - Build command: `npm run build`
    - Build output directory: `dist`
+   - **Deploy command: LEAVE EMPTY** (do not use wrangler)
 
-2. **Manual Deployment**:
+2. **Important Notes**:
+   - Do NOT use `npx wrangler deploy` in the deploy command
+   - Cloudflare Pages will automatically deploy the static files from `dist/`
+   - The `_headers` file is automatically included for security headers
+
+3. **Manual Deployment**:
    ```bash
    npm run build
-   # Upload the `dist/` directory to Cloudflare Pages
+   # Upload the `dist/` directory to Cloudflare Pages dashboard
    ```
-
-The build process generates a static export in the `dist/` directory with security headers configured in `_headers`.
 
 ## 🎯 MVP Status
 
