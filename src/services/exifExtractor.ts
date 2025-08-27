@@ -28,10 +28,13 @@ export class ExifExtractor {
         },
         metadata: {
           dateTime: rawExif.DateTime || rawExif.DateTimeOriginal,
-          gps: rawExif.latitude && rawExif.longitude ? {
-            latitude: rawExif.latitude,
-            longitude: rawExif.longitude,
-          } : undefined,
+          gps:
+            rawExif.latitude && rawExif.longitude
+              ? {
+                  latitude: rawExif.latitude,
+                  longitude: rawExif.longitude,
+                }
+              : undefined,
         },
       };
     } catch (error) {
@@ -47,14 +50,19 @@ export class ExifExtractor {
       focalLength: this.formatFocalLength(exifData.lens?.focalLength),
       iso: this.formatISO(exifData.settings?.iso),
       aperture: this.formatAperture(exifData.settings?.fNumber),
-      shutterSpeed: this.formatShutterSpeed(exifData.settings?.shutterSpeed, exifData.settings?.exposureTime),
+      shutterSpeed: this.formatShutterSpeed(
+        exifData.settings?.shutterSpeed,
+        exifData.settings?.exposureTime
+      ),
       dateTime: this.formatDateTime(exifData.metadata?.dateTime),
     };
   }
 
-  private static calculateShutterSpeed(exposureTime?: number): string | undefined {
+  private static calculateShutterSpeed(
+    exposureTime?: number
+  ): string | undefined {
     if (!exposureTime) return undefined;
-    
+
     if (exposureTime >= 1) {
       return `${exposureTime}s`;
     } else {
@@ -63,23 +71,29 @@ export class ExifExtractor {
     }
   }
 
-  private static formatCamera(camera?: { make?: string; model?: string }): string | null {
+  private static formatCamera(camera?: {
+    make?: string;
+    model?: string;
+  }): string | null {
     if (!camera?.make && !camera?.model) return null;
-    
+
     if (camera.make && camera.model) {
       return `${camera.make} ${camera.model}`;
     }
-    
+
     return camera.make || camera.model || null;
   }
 
-  private static formatLens(lens?: { make?: string; model?: string }): string | null {
+  private static formatLens(lens?: {
+    make?: string;
+    model?: string;
+  }): string | null {
     if (!lens?.make && !lens?.model) return null;
-    
+
     if (lens.make && lens.model) {
       return `${lens.make} ${lens.model}`;
     }
-    
+
     return lens.make || lens.model || null;
   }
 
@@ -98,7 +112,10 @@ export class ExifExtractor {
     return `f/${fNumber}`;
   }
 
-  private static formatShutterSpeed(shutterSpeed?: string, exposureTime?: number): string | null {
+  private static formatShutterSpeed(
+    shutterSpeed?: string,
+    exposureTime?: number
+  ): string | null {
     if (shutterSpeed) return shutterSpeed;
     if (!exposureTime) return null;
     return this.calculateShutterSpeed(exposureTime) || null;
@@ -106,9 +123,38 @@ export class ExifExtractor {
 
   private static formatDateTime(dateTime?: string): string | null {
     if (!dateTime) return null;
-    
+
     try {
       const date = new Date(dateTime);
+
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        // Try parsing EXIF date format (YYYY:MM:DD HH:mm:ss)
+        const exifMatch = dateTime.match(
+          /^(\d{4}):(\d{2}):(\d{2})\s(\d{2}):(\d{2}):(\d{2})$/
+        );
+        if (exifMatch) {
+          const [, year, month, day, hour, minute, second] = exifMatch;
+          const parsedDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hour),
+            parseInt(minute),
+            parseInt(second)
+          );
+
+          return parsedDate.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        }
+        return dateTime;
+      }
+
       return date.toLocaleDateString('ja-JP', {
         year: 'numeric',
         month: '2-digit',

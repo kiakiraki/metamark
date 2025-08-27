@@ -10,7 +10,7 @@ interface TemplateState {
 }
 
 export const useTemplateStore = create<TemplateState>((set) => ({
-  selectedTemplate: null,
+  selectedTemplate: templates.minimal, // Default to minimal template
   templates,
 
   selectTemplate: (preset) =>

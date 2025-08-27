@@ -13,6 +13,7 @@ const defaultCanvasSettings: CanvasSettings = {
   quality: 0.95,
   format: 'png',
   scale: 1,
+  overlayPosition: 'top-left',
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -23,6 +24,5 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       canvasSettings: { ...state.canvasSettings, ...settingsUpdate },
     })),
 
-  resetToDefaults: () =>
-    set({ canvasSettings: defaultCanvasSettings }),
+  resetToDefaults: () => set({ canvasSettings: defaultCanvasSettings }),
 }));

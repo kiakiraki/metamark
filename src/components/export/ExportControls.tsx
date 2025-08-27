@@ -12,7 +12,7 @@ import clsx from 'clsx';
 
 export function ExportControls() {
   const [isExporting, setIsExporting] = useState(false);
-  
+
   const selectedImage = useSelectedImage();
   const getNormalizedData = useExifStore((state) => state.getNormalizedData);
   const { selectedTemplate } = useTemplateStore();
@@ -26,14 +26,14 @@ export function ExportControls() {
     try {
       const image = await ImageProcessor.createImageElement(selectedImage.url);
       const exifData = getNormalizedData(selectedImage.id);
-      
+
       if (!exifData) {
         throw new Error('No EXIF data available');
       }
 
       // Create temporary canvas for export
       const canvas = document.createElement('canvas');
-      
+
       // Use original image dimensions for high quality export
       const { width, height } = CanvasRenderer.calculateOptimalSize(
         selectedImage.width,
@@ -61,7 +61,6 @@ export function ExportControls() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed. Please try again.');
@@ -74,23 +73,22 @@ export function ExportControls() {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900">Export</h3>
-      
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Export</h3>
+
       {/* Format Settings */}
       <div className="space-y-3">
-        <h4 className="text-sm font-medium text-gray-700">Format</h4>
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Format</h4>
         <div className="flex space-x-2">
           {(['png', 'jpeg'] as const).map((format) => (
             <button
               key={format}
               onClick={() => updateCanvasSettings({ format })}
-              className={clsx(
-                'px-3 py-1 text-sm rounded border',
-                {
-                  'border-blue-500 bg-blue-50 text-blue-700': canvasSettings.format === format,
-                  'border-gray-300 bg-white text-gray-700 hover:bg-gray-50': canvasSettings.format !== format,
-                }
-              )}
+              className={clsx('px-3 py-1 text-sm rounded border', {
+                'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300':
+                  canvasSettings.format === format,
+                'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600':
+                  canvasSettings.format !== format,
+              })}
             >
               {format.toUpperCase()}
             </button>
@@ -101,7 +99,7 @@ export function ExportControls() {
       {/* Quality Settings */}
       {canvasSettings.format === 'jpeg' && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-700">Quality</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Quality</h4>
           <div className="space-y-2">
             <input
               type="range"
@@ -109,10 +107,12 @@ export function ExportControls() {
               max={1}
               step={0.1}
               value={canvasSettings.quality}
-              onChange={(e) => updateCanvasSettings({ quality: parseFloat(e.target.value) })}
+              onChange={(e) =>
+                updateCanvasSettings({ quality: parseFloat(e.target.value) })
+              }
               className="w-full"
             />
-            <div className="text-xs text-gray-500 text-center">
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
               {Math.round(canvasSettings.quality * 100)}%
             </div>
           </div>
@@ -126,8 +126,10 @@ export function ExportControls() {
         className={clsx(
           'w-full py-3 px-4 rounded-lg font-medium text-center transition-colors',
           {
-            'bg-blue-600 text-white hover:bg-blue-700': canExport && !isExporting,
-            'bg-gray-300 text-gray-500 cursor-not-allowed': !canExport || isExporting,
+            'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600':
+              canExport && !isExporting,
+            'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400':
+              !canExport || isExporting,
           }
         )}
         whileHover={canExport && !isExporting ? { scale: 1.02 } : {}}

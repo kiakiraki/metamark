@@ -17,7 +17,7 @@ export const minimalTemplate: Template = {
     x: 20,
     y: 20,
     width: 300,
-    height: 120,
+    height: 180, // Increased height to accommodate all 7 fields including date
     alignment: 'left',
   },
   fields: [
@@ -54,7 +54,7 @@ export const minimalTemplate: Template = {
     {
       key: 'dateTime',
       label: 'Date',
-      visible: false,
+      visible: true,
     },
   ],
-};
+};;

@@ -1,9 +1,12 @@
+import type { PositionPreset } from './template';
+
 export interface CanvasSettings {
   width: number;
   height: number;
   quality: number;
   format: 'png' | 'jpeg';
   scale: number;
+  overlayPosition: PositionPreset;
 }
 
 export interface RenderOptions {

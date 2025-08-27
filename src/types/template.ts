@@ -16,6 +16,12 @@ export interface TemplatePosition {
   alignment: 'left' | 'center' | 'right';
 }
 
+export type PositionPreset =
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right';
+
 export interface Template {
   id: string;
   name: string;
@@ -32,4 +38,9 @@ export interface TemplateField {
   format?: (value: string | null) => string;
 }
 
-export type TemplatePreset = 'minimal' | 'classic' | 'modern' | 'film' | 'technical';
+export type TemplatePreset =
+  | 'minimal'
+  | 'classic'
+  | 'modern'
+  | 'film'
+  | 'technical';

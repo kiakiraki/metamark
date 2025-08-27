@@ -64,6 +64,7 @@ npm run build
 ### Security Headers
 
 The app includes security headers in `_headers`:
+
 - Content Security Policy
 - Cross-Origin Policies
 - XSS Protection
@@ -89,7 +90,7 @@ src/
 - **Minimal**: Clean, essential information
 - **Classic**: Traditional film-inspired layout
 - **Modern**: Contemporary design with icons
-- *More templates coming soon...*
+- _More templates coming soon..._
 
 ## 📋 Requirements
 
@@ -112,6 +113,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## 🎯 MVP Status
 
 ✅ **Completed Features**:
+
 - Image upload with drag & drop
 - EXIF metadata extraction
 - Basic template system (Minimal, Classic, Modern)
@@ -121,6 +123,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - Static site generation for Cloudflare Pages
 
 🔄 **Coming Next**:
+
 - Additional templates (Film, Technical)
 - Custom template editor
 - Batch processing

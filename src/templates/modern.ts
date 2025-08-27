@@ -17,7 +17,7 @@ export const modernTemplate: Template = {
     x: 25,
     y: 25,
     width: 320,
-    height: 130,
+    height: 150, // Increased height to accommodate date
     alignment: 'left',
   },
   fields: [
@@ -54,7 +54,7 @@ export const modernTemplate: Template = {
     {
       key: 'dateTime',
       label: '📅',
-      visible: false,
+      visible: true, // Changed to visible
     },
   ],
 };
