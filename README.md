@@ -110,6 +110,25 @@ src/
 
 MIT License - see [LICENSE](LICENSE) for details.
 
+## 🚀 Deployment
+
+### Cloudflare Pages
+
+This project is configured for deployment to Cloudflare Pages:
+
+1. **Build Settings**:
+   - Framework preset: `Next.js (Static HTML Export)`
+   - Build command: `npm run build`
+   - Build output directory: `out`
+
+2. **Manual Deployment**:
+   ```bash
+   npm run build
+   # Upload the `out/` directory to Cloudflare Pages
+   ```
+
+The build process generates a static export in the `out/` directory with security headers configured in `_headers`.
+
 ## 🎯 MVP Status
 
 ✅ **Completed Features**:
