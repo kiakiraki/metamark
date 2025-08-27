@@ -11,25 +11,35 @@ export class CanvasRenderer {
       throw new Error('Unable to get canvas context');
     }
 
-    // Set canvas dimensions
-    canvas.width = settings.width;
-    canvas.height = settings.height;
+    // Get device pixel ratio for high-DPI displays
+    const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    
+    // Set display size (CSS pixels)
+    canvas.style.width = `${settings.width}px`;
+    canvas.style.height = `${settings.height}px`;
+    
+    // Set actual size in memory (scaled for device pixel ratio)
+    canvas.width = settings.width * devicePixelRatio;
+    canvas.height = settings.height * devicePixelRatio;
+    
+    // Scale the context to ensure correct drawing operations
+    ctx.scale(devicePixelRatio, devicePixelRatio);
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, settings.width, settings.height);
 
     // Draw image
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, settings.width, settings.height);
 
     // Calculate scale factor based on canvas size
-    const scaleFactor = Math.min(canvas.width, canvas.height) / 1000; // Base scale for 1000px
+    const scaleFactor = Math.min(settings.width, settings.height) / 1000; // Base scale for 1000px
 
     // Calculate dynamic position based on overlay position setting and exif data
     const dynamicTemplate = this.calculateDynamicPosition(
       template,
       settings,
-      canvas.width,
-      canvas.height,
+      settings.width,
+      settings.height,
       exifData
     );
 
@@ -51,10 +61,13 @@ export class CanvasRenderer {
     exifData: NormalizedExifData
   ): Template {
     const { overlayPosition } = settings;
-    const margin = 20; // Margin from edges
+    
+    // Calculate responsive margin based on canvas size
+    const scaleFactor = Math.min(canvasWidth, canvasHeight) / 1000;
+    const baseMargin = 20;
+    const margin = Math.max(10, Math.min(40, baseMargin * scaleFactor)); // Clamp between 10-40px
 
     // Calculate scaled template dimensions
-    const scaleFactor = Math.min(canvasWidth, canvasHeight) / 1000;
     const scaledWidth = template.position.width * scaleFactor;
     const scaledHeight = this.calculateDynamicTemplateHeight(
       template,
