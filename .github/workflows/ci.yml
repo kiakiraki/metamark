@@ -9,6 +9,8 @@ on:
 jobs:
   lint-and-format:
     name: Lint and Format Check
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
