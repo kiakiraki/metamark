@@ -27,10 +27,10 @@ npm run dev
 ### Production Build
 
 ```bash
-# Build for production (static export for Cloudflare Pages)
+# Build for production (static export)
 npm run build
 
-# Output will be in the 'out/' directory
+# Output will be in the 'dist/' directory
 ```
 
 ## 📷 How It Works
@@ -48,15 +48,15 @@ npm run build
 - **State Management**: Zustand
 - **EXIF Processing**: exifr
 - **File Upload**: react-dropzone
-- **Deployment**: Cloudflare Pages
+- **Deployment**: Cloudflare Workers/Pages
 
 ## 🔧 Configuration
 
-### Cloudflare Pages Setup
+### Cloudflare Workers/Pages Setup
 
 1. **Build Command**: `npm run build`
-2. **Output Directory**: `out`
-3. **Environment Variables**:
+2. **Output Directory**: `dist`
+3. **Environment Variables** (optional):
    - `NODE_VERSION`: 20
    - `NPM_VERSION`: 10
    - `NEXT_TELEMETRY_DISABLED`: 1
@@ -112,26 +112,41 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🚀 Deployment
 
-### Cloudflare Pages
+### Cloudflare Workers/Pages
 
-This project is configured for deployment to Cloudflare Pages:
+This project is configured for deployment to Cloudflare Workers with custom domain support:
 
-1. **Build Settings** (in Cloudflare Pages dashboard):
+1. **Prerequisites**:
+   ```bash
+   # Install Wrangler CLI
+   npm install -g wrangler
+   
+   # Login to Cloudflare
+   wrangler login
+   ```
+
+2. **Deployment Commands**:
+   ```bash
+   # Build the project
+   npm run build
+   
+   # Deploy to preview
+   npm run deploy:preview
+   
+   # Deploy to production (metamark.kiakiraki.dev)
+   npm run deploy:production
+   ```
+
+3. **Configuration**:
+   - **Custom Domain**: `metamark.kiakiraki.dev`
+   - **Output Directory**: `dist/`
+   - **Wrangler Config**: `wrangler.toml`
+
+4. **Alternative: Cloudflare Pages Dashboard**:
    - Framework preset: `Next.js (Static HTML Export)`
    - Build command: `npm run build`
    - Build output directory: `dist`
-   - **Deploy command: LEAVE EMPTY** (do not use wrangler)
-
-2. **Important Notes**:
-   - Do NOT use `npx wrangler deploy` in the deploy command
-   - Cloudflare Pages will automatically deploy the static files from `dist/`
-   - The `_headers` file is automatically included for security headers
-
-3. **Manual Deployment**:
-   ```bash
-   npm run build
-   # Upload the `dist/` directory to Cloudflare Pages dashboard
-   ```
+   - Deploy command: leave empty
 
 ## 🎯 MVP Status
 
@@ -143,7 +158,7 @@ This project is configured for deployment to Cloudflare Pages:
 - Canvas rendering with overlays
 - High-quality image export
 - Responsive UI with dark/light themes
-- Static site generation for Cloudflare Pages
+- Static site generation for Cloudflare Workers/Pages
 
 🔄 **Coming Next**:
 
