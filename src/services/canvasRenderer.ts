@@ -12,16 +12,17 @@ export class CanvasRenderer {
     }
 
     // Get device pixel ratio for high-DPI displays
-    const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    
+    const devicePixelRatio =
+      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+
     // Set display size (CSS pixels)
     canvas.style.width = `${settings.width}px`;
     canvas.style.height = `${settings.height}px`;
-    
+
     // Set actual size in memory (scaled for device pixel ratio)
     canvas.width = settings.width * devicePixelRatio;
     canvas.height = settings.height * devicePixelRatio;
-    
+
     // Scale the context to ensure correct drawing operations
     ctx.scale(devicePixelRatio, devicePixelRatio);
 
@@ -61,7 +62,7 @@ export class CanvasRenderer {
     exifData: NormalizedExifData
   ): Template {
     const { overlayPosition } = settings;
-    
+
     // Calculate responsive margin based on canvas size
     const scaleFactor = Math.min(canvasWidth, canvasHeight) / 1000;
     const baseMargin = 20;
