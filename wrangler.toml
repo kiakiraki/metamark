@@ -1,0 +1,13 @@
+name = "metamark"
+compatibility_date = "2025-08-27"
+
+[assets]
+directory = "dist"
+
+[[routes]]
+pattern = "metamark.kiakiraki.dev/*"
+custom_domain = true
+
+[[routes]]
+pattern = "metamark.kiakiraki.dev"
+custom_domain = true

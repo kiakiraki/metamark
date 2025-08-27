@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "deploy": "wrangler pages deploy",
+    "deploy:preview": "wrangler pages deploy --compatibility-date=2025-08-27",
+    "deploy:production": "wrangler pages deploy --env production"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
