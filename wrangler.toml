@@ -5,9 +5,5 @@ compatibility_date = "2025-08-27"
 directory = "dist"
 
 [[routes]]
-pattern = "metamark.kiakiraki.dev/*"
-custom_domain = true
-
-[[routes]]
 pattern = "metamark.kiakiraki.dev"
 custom_domain = true
