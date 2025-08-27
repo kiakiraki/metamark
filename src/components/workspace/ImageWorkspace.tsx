@@ -99,7 +99,8 @@ export function ImageWorkspace() {
     }
 
     // Responsive breakpoints
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const windowWidth =
+      typeof window !== 'undefined' ? window.innerWidth : 1024;
     const isMobile = windowWidth < 768;
     const isTablet = windowWidth < 1024;
 
@@ -109,7 +110,7 @@ export function ImageWorkspace() {
     const minHeight = isMobile ? 250 : 300;
 
     const imageAspectRatio = currentImage.width / currentImage.height;
-    
+
     let optimalWidth = Math.min(maxWidth, currentImage.width);
     let optimalHeight = optimalWidth / imageAspectRatio;
 
@@ -202,8 +203,10 @@ export function ImageWorkspace() {
           'relative w-full h-full min-h-[60vh] border-2 border-dashed rounded-xl transition-all duration-300',
           'flex flex-col items-center justify-center cursor-pointer',
           {
-            'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20': isDragActive && !isDragReject,
-            'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20': isDragReject,
+            'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20':
+              isDragActive && !isDragReject,
+            'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20':
+              isDragReject,
             'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:hover:border-gray-500':
               !isDragActive && !isDragReject,
           }
@@ -268,7 +271,8 @@ export function ImageWorkspace() {
           {
             'ring-2 ring-blue-400 ring-opacity-50 dark:ring-blue-500':
               isDragActive && !isDragReject,
-            'ring-2 ring-red-400 ring-opacity-50 dark:ring-red-500': isDragReject,
+            'ring-2 ring-red-400 ring-opacity-50 dark:ring-red-500':
+              isDragReject,
           }
         )}
         style={{
@@ -281,7 +285,7 @@ export function ImageWorkspace() {
         <motion.canvas
           ref={canvasRef}
           className="max-w-full rounded-lg shadow-lg"
-          style={{ 
+          style={{
             imageRendering: 'auto',
             marginTop: currentImage ? '20px' : '0px',
             maxHeight: containerHeight ? `${containerHeight - 60}px` : '60vh',

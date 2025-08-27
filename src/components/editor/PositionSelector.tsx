@@ -23,7 +23,9 @@ export function PositionSelector() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Overlay Position</h3>
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        Overlay Position
+      </h3>
 
       {/* Visual Grid Selector */}
       <div className="relative">
@@ -39,7 +41,8 @@ export function PositionSelector() {
                   'relative p-3 rounded-lg border-2 transition-all duration-200',
                   'flex items-center justify-center min-h-[60px]',
                   {
-                    'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300': isSelected,
+                    'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300':
+                      isSelected,
                     'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700':
                       !isSelected,
                   }

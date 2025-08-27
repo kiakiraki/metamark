@@ -52,11 +52,15 @@ export class CanvasRenderer {
   ): Template {
     const { overlayPosition } = settings;
     const margin = 20; // Margin from edges
-    
+
     // Calculate scaled template dimensions
     const scaleFactor = Math.min(canvasWidth, canvasHeight) / 1000;
     const scaledWidth = template.position.width * scaleFactor;
-    const scaledHeight = this.calculateDynamicTemplateHeight(template, exifData, scaleFactor);
+    const scaledHeight = this.calculateDynamicTemplateHeight(
+      template,
+      exifData,
+      scaleFactor
+    );
 
     let x: number, y: number;
 
@@ -142,7 +146,7 @@ export class CanvasRenderer {
     });
 
     // Calculate dynamic height based on actual content
-    const dynamicHeight = 
+    const dynamicHeight =
       scaledPadding + // top padding
       scaledFontSize + // first line baseline
       (linesToDisplay.length - 1) * lineHeight + // additional lines
@@ -181,7 +185,7 @@ export class CanvasRenderer {
     // Render visible fields
     for (const field of visibleFields) {
       const value = exifData[field.key];
-      
+
       // Always render visible fields, even if value is null/undefined
       if (value) {
         const text = field.format
@@ -193,7 +197,7 @@ export class CanvasRenderer {
         const text = `${field.label}: N/A`;
         ctx.fillText(text, textX, currentY);
       }
-      
+
       currentY += lineHeight;
     }
   }

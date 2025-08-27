@@ -73,11 +73,15 @@ export function ExportControls() {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Export</h3>
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        Export
+      </h3>
 
       {/* Format Settings */}
       <div className="space-y-3">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Format</h4>
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Format
+        </h4>
         <div className="flex space-x-2">
           {(['png', 'jpeg'] as const).map((format) => (
             <button
@@ -99,7 +103,9 @@ export function ExportControls() {
       {/* Quality Settings */}
       {canvasSettings.format === 'jpeg' && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Quality</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Quality
+          </h4>
           <div className="space-y-2">
             <input
               type="range"

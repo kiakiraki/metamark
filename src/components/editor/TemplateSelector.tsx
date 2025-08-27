@@ -24,7 +24,9 @@ export function TemplateSelector() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Template</h3>
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        Template
+      </h3>
 
       <div className="grid grid-cols-1 gap-3">
         {templatePresets.map((preset) => {
@@ -40,7 +42,8 @@ export function TemplateSelector() {
               className={clsx(
                 'p-4 rounded-lg border text-left transition-colors',
                 {
-                  'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20': isSelected && isAvailable,
+                  'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20':
+                    isSelected && isAvailable,
                   'border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600':
                     !isSelected && isAvailable,
                   'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800':
@@ -60,7 +63,9 @@ export function TemplateSelector() {
                       </span>
                     )}
                   </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{preset.description}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {preset.description}
+                  </p>
                 </div>
 
                 {isSelected && isAvailable && (

@@ -57,4 +57,4 @@ export const minimalTemplate: Template = {
       visible: true,
     },
   ],
-};;
+};
