@@ -28,9 +28,9 @@ export class CanvasRenderer {
     // Use the original image aspect ratio for accurate drawing
     const originalImageAspectRatio = image.width / image.height;
     const canvasAspectRatio = settings.width / settings.height;
-    
+
     let drawWidth, drawHeight, drawX, drawY;
-    
+
     if (originalImageAspectRatio > canvasAspectRatio) {
       // Image is wider than canvas - fit width, calculate height from original aspect ratio
       drawWidth = settings.width;
@@ -139,7 +139,7 @@ export class CanvasRenderer {
     // Create a temporary canvas to measure text and calculate wrapping
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
-    
+
     if (!tempCtx) {
       // Fallback: count visible fields without wrapping
       const visibleFields = template.fields.filter((field) => field.visible);
@@ -153,10 +153,10 @@ export class CanvasRenderer {
     }
 
     tempCtx.font = `${scaledFontSize}px ${template.style.fontFamily}`;
-    
+
     // Calculate available width for text
     const templateWidth = template.position.width * scaleFactor;
-    const maxTextWidth = templateWidth - (scaledPadding * 2);
+    const maxTextWidth = templateWidth - scaledPadding * 2;
 
     // Count total lines including wrapped text
     const visibleFields = template.fields.filter((field) => field.visible);
@@ -165,9 +165,11 @@ export class CanvasRenderer {
     for (const field of visibleFields) {
       const value = exifData[field.key];
       const text = value
-        ? (field.format ? field.format(value) : `${field.label}: ${value}`)
+        ? field.format
+          ? field.format(value)
+          : `${field.label}: ${value}`
         : `${field.label}: N/A`;
-      
+
       // Calculate wrapped lines for this text
       const wrappedLines = this.wrapText(tempCtx, text, maxTextWidth);
       totalLines += wrappedLines.length;
@@ -194,7 +196,7 @@ export class CanvasRenderer {
     for (const word of words) {
       const testLine = currentLine ? `${currentLine} ${word}` : word;
       const metrics = ctx.measureText(testLine);
-      
+
       if (metrics.width > maxWidth && currentLine) {
         lines.push(currentLine);
         currentLine = word;
@@ -202,11 +204,11 @@ export class CanvasRenderer {
         currentLine = testLine;
       }
     }
-    
+
     if (currentLine) {
       lines.push(currentLine);
     }
-    
+
     return lines;
   }
 
@@ -234,7 +236,7 @@ export class CanvasRenderer {
     ctx.textAlign = position.alignment as CanvasTextAlign;
 
     // Calculate available width for text wrapping
-    const maxTextWidth = scaledWidth - (scaledPadding * 2);
+    const maxTextWidth = scaledWidth - scaledPadding * 2;
 
     // Filter visible fields and prepare text content with wrapping
     const visibleFields = fields.filter((field) => field.visible);
@@ -243,9 +245,11 @@ export class CanvasRenderer {
     for (const field of visibleFields) {
       const value = exifData[field.key];
       const text = value
-        ? (field.format ? field.format(value) : `${field.label}: ${value}`)
+        ? field.format
+          ? field.format(value)
+          : `${field.label}: ${value}`
         : `${field.label}: N/A`;
-      
+
       // Wrap text if it's too long
       const wrappedLines = this.wrapText(ctx, text, maxTextWidth);
       allTextLines.push(...wrappedLines);

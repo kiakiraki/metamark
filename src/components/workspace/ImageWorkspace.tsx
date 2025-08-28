@@ -187,29 +187,26 @@ export function ImageWorkspace() {
       });
 
       // Calculate responsive display size based on window size
-      const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+      const windowWidth =
+        typeof window !== 'undefined' ? window.innerWidth : 1024;
       const isMobile = windowWidth < 768;
       const isTablet = windowWidth < 1024;
 
       // Dynamic max dimensions based on screen size with margins
       const horizontalMargin = 40; // 20px on each side
-      
-      const maxDisplayWidth = isMobile 
+
+      const maxDisplayWidth = isMobile
         ? Math.min(300, windowWidth - horizontalMargin)
-        : isTablet 
-        ? Math.min(500, windowWidth - horizontalMargin)
-        : Math.min(700, windowWidth - horizontalMargin);
-        
-      const maxDisplayHeight = isMobile 
-        ? 400 
-        : isTablet 
-        ? 500 
-        : 600;
+        : isTablet
+          ? Math.min(500, windowWidth - horizontalMargin)
+          : Math.min(700, windowWidth - horizontalMargin);
+
+      const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
 
       const imageAspectRatio = currentImage.width / currentImage.height;
-      
+
       let displayWidth, displayHeight;
-      
+
       if (imageAspectRatio > maxDisplayWidth / maxDisplayHeight) {
         // Image is wider - fit to max width
         displayWidth = Math.min(maxDisplayWidth, width);
@@ -225,7 +222,7 @@ export function ImageWorkspace() {
         displayWidth = maxDisplayWidth;
         displayHeight = displayWidth / imageAspectRatio;
       }
-      
+
       if (displayHeight > maxDisplayHeight) {
         displayHeight = maxDisplayHeight;
         displayWidth = displayHeight * imageAspectRatio;
