@@ -123,8 +123,11 @@ export function ImageWorkspace() {
     // Ensure minimum height
     optimalHeight = Math.max(minHeight, optimalHeight);
 
-    // Add padding for controls and info
-    const paddingHeight = 60;
+    // Add padding for controls and info - include top and bottom margins
+    const topMargin = 20; // marginTop from canvas style
+    const bottomMargin = 20; // matching bottom margin
+    const infoBarHeight = 40; // space for info bar at bottom
+    const paddingHeight = topMargin + bottomMargin + infoBarHeight;
     setContainerHeight(optimalHeight + paddingHeight);
   }, [currentImage]);
 
@@ -136,6 +139,7 @@ export function ImageWorkspace() {
   useEffect(() => {
     const handleResize = () => {
       calculateContainerHeight();
+      // Re-render canvas with new responsive size will be triggered by other useEffect
     };
 
     window.addEventListener('resize', handleResize);
@@ -181,6 +185,55 @@ export function ImageWorkspace() {
           height,
         },
       });
+
+      // Calculate responsive display size based on window size
+      const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+      const isMobile = windowWidth < 768;
+      const isTablet = windowWidth < 1024;
+
+      // Dynamic max dimensions based on screen size with margins
+      const horizontalMargin = 40; // 20px on each side
+      
+      const maxDisplayWidth = isMobile 
+        ? Math.min(300, windowWidth - horizontalMargin)
+        : isTablet 
+        ? Math.min(500, windowWidth - horizontalMargin)
+        : Math.min(700, windowWidth - horizontalMargin);
+        
+      const maxDisplayHeight = isMobile 
+        ? 400 
+        : isTablet 
+        ? 500 
+        : 600;
+
+      const imageAspectRatio = currentImage.width / currentImage.height;
+      
+      let displayWidth, displayHeight;
+      
+      if (imageAspectRatio > maxDisplayWidth / maxDisplayHeight) {
+        // Image is wider - fit to max width
+        displayWidth = Math.min(maxDisplayWidth, width);
+        displayHeight = displayWidth / imageAspectRatio;
+      } else {
+        // Image is taller - fit to max height
+        displayHeight = Math.min(maxDisplayHeight, height);
+        displayWidth = displayHeight * imageAspectRatio;
+      }
+
+      // Ensure the display size doesn't exceed viewport constraints
+      if (displayWidth > maxDisplayWidth) {
+        displayWidth = maxDisplayWidth;
+        displayHeight = displayWidth / imageAspectRatio;
+      }
+      
+      if (displayHeight > maxDisplayHeight) {
+        displayHeight = maxDisplayHeight;
+        displayWidth = displayHeight * imageAspectRatio;
+      }
+
+      // Set canvas display size to the responsive display size
+      canvasRef.current.style.width = `${displayWidth}px`;
+      canvasRef.current.style.height = `${displayHeight}px`;
     } catch (error) {
       console.error('Error rendering canvas:', error);
     } finally {
@@ -284,11 +337,10 @@ export function ImageWorkspace() {
 
         <motion.canvas
           ref={canvasRef}
-          className="max-w-full rounded-lg shadow-lg"
+          className="rounded-lg shadow-lg"
           style={{
             imageRendering: 'auto',
             marginTop: currentImage ? '20px' : '0px',
-            maxHeight: containerHeight ? `${containerHeight - 60}px` : '60vh',
           }}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}

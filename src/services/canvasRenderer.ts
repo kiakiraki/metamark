@@ -15,10 +15,6 @@ export class CanvasRenderer {
     const devicePixelRatio =
       typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
-    // Set display size (CSS pixels)
-    canvas.style.width = `${settings.width}px`;
-    canvas.style.height = `${settings.height}px`;
-
     // Set actual size in memory (scaled for device pixel ratio)
     canvas.width = settings.width * devicePixelRatio;
     canvas.height = settings.height * devicePixelRatio;
@@ -29,8 +25,28 @@ export class CanvasRenderer {
     // Clear canvas
     ctx.clearRect(0, 0, settings.width, settings.height);
 
-    // Draw image
-    ctx.drawImage(image, 0, 0, settings.width, settings.height);
+    // Use the original image aspect ratio for accurate drawing
+    const originalImageAspectRatio = image.width / image.height;
+    const canvasAspectRatio = settings.width / settings.height;
+    
+    let drawWidth, drawHeight, drawX, drawY;
+    
+    if (originalImageAspectRatio > canvasAspectRatio) {
+      // Image is wider than canvas - fit width, calculate height from original aspect ratio
+      drawWidth = settings.width;
+      drawHeight = settings.width / originalImageAspectRatio;
+      drawX = 0;
+      drawY = (settings.height - drawHeight) / 2;
+    } else {
+      // Image is taller than canvas - fit height, calculate width from original aspect ratio
+      drawHeight = settings.height;
+      drawWidth = settings.height * originalImageAspectRatio;
+      drawX = (settings.width - drawWidth) / 2;
+      drawY = 0;
+    }
+
+    // Draw image with preserved aspect ratio
+    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 
     // Calculate scale factor based on canvas size
     const scaleFactor = Math.min(settings.width, settings.height) / 1000; // Base scale for 1000px
@@ -120,17 +136,78 @@ export class CanvasRenderer {
     const scaledPadding = template.style.padding * scaleFactor;
     const lineHeight = scaledFontSize * 1.4;
 
-    // Count visible fields that will be displayed
-    const visibleFields = template.fields.filter((field) => field.visible);
-    const linesToDisplay = visibleFields.length; // Show all visible fields regardless of data
+    // Create a temporary canvas to measure text and calculate wrapping
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    if (!tempCtx) {
+      // Fallback: count visible fields without wrapping
+      const visibleFields = template.fields.filter((field) => field.visible);
+      const linesToDisplay = visibleFields.length;
+      return (
+        scaledPadding + // top padding
+        scaledFontSize + // first line baseline
+        (linesToDisplay - 1) * lineHeight + // additional lines
+        scaledPadding // bottom padding
+      );
+    }
 
-    // Calculate dynamic height
+    tempCtx.font = `${scaledFontSize}px ${template.style.fontFamily}`;
+    
+    // Calculate available width for text
+    const templateWidth = template.position.width * scaleFactor;
+    const maxTextWidth = templateWidth - (scaledPadding * 2);
+
+    // Count total lines including wrapped text
+    const visibleFields = template.fields.filter((field) => field.visible);
+    let totalLines = 0;
+
+    for (const field of visibleFields) {
+      const value = exifData[field.key];
+      const text = value
+        ? (field.format ? field.format(value) : `${field.label}: ${value}`)
+        : `${field.label}: N/A`;
+      
+      // Calculate wrapped lines for this text
+      const wrappedLines = this.wrapText(tempCtx, text, maxTextWidth);
+      totalLines += wrappedLines.length;
+    }
+
+    // Calculate dynamic height based on total wrapped lines
     return (
       scaledPadding + // top padding
       scaledFontSize + // first line baseline
-      (linesToDisplay - 1) * lineHeight + // additional lines
+      (totalLines - 1) * lineHeight + // additional lines
       scaledPadding // bottom padding
     );
+  }
+
+  private static wrapText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number
+  ): string[] {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
   }
 
   private static drawTemplate(
@@ -152,26 +229,37 @@ export class CanvasRenderer {
     // Calculate line height
     const lineHeight = scaledFontSize * 1.4;
 
-    // Filter visible fields and count actual lines to be displayed
-    const visibleFields = fields.filter((field) => field.visible);
-    const linesToDisplay = visibleFields.filter((field) => {
-      const value = exifData[field.key];
-      return value || field.key; // Include all visible fields, even if value is null
-    });
+    // Set up text rendering first to measure text
+    ctx.font = `${scaledFontSize}px ${style.fontFamily}`;
+    ctx.textAlign = position.alignment as CanvasTextAlign;
 
-    // Calculate dynamic height based on actual content
+    // Calculate available width for text wrapping
+    const maxTextWidth = scaledWidth - (scaledPadding * 2);
+
+    // Filter visible fields and prepare text content with wrapping
+    const visibleFields = fields.filter((field) => field.visible);
+    const allTextLines: string[] = [];
+
+    for (const field of visibleFields) {
+      const value = exifData[field.key];
+      const text = value
+        ? (field.format ? field.format(value) : `${field.label}: ${value}`)
+        : `${field.label}: N/A`;
+      
+      // Wrap text if it's too long
+      const wrappedLines = this.wrapText(ctx, text, maxTextWidth);
+      allTextLines.push(...wrappedLines);
+    }
+
+    // Calculate dynamic height based on total wrapped lines
     const dynamicHeight =
       scaledPadding + // top padding
       scaledFontSize + // first line baseline
-      (linesToDisplay.length - 1) * lineHeight + // additional lines
+      (allTextLines.length - 1) * lineHeight + // additional lines
       scaledPadding; // bottom padding
 
-    // Use dynamic height instead of template's fixed height
+    // Use dynamic height
     const scaledHeight = dynamicHeight;
-
-    // Set up text rendering
-    ctx.font = `${scaledFontSize}px ${style.fontFamily}`;
-    ctx.textAlign = position.alignment as CanvasTextAlign;
 
     // Draw background with dynamic height
     ctx.globalAlpha = style.opacity;
@@ -196,22 +284,9 @@ export class CanvasRenderer {
         ? scaledX + scaledWidth / 2
         : scaledX + scaledPadding;
 
-    // Render visible fields
-    for (const field of visibleFields) {
-      const value = exifData[field.key];
-
-      // Always render visible fields, even if value is null/undefined
-      if (value) {
-        const text = field.format
-          ? field.format(value)
-          : `${field.label}: ${value}`;
-        ctx.fillText(text, textX, currentY);
-      } else {
-        // Show "N/A" for missing data
-        const text = `${field.label}: N/A`;
-        ctx.fillText(text, textX, currentY);
-      }
-
+    // Render all wrapped text lines
+    for (const line of allTextLines) {
+      ctx.fillText(line, textX, currentY);
       currentY += lineHeight;
     }
   }
@@ -246,16 +321,20 @@ export class CanvasRenderer {
     }
 
     if (aspectRatio > 1) {
-      // Landscape
+      // Landscape - use exact aspect ratio to calculate height
+      const width = maxSize;
+      const height = Math.round(maxSize / aspectRatio);
       return {
-        width: maxSize,
-        height: Math.round(maxSize / aspectRatio),
+        width,
+        height,
       };
     } else {
-      // Portrait or square
+      // Portrait or square - use exact aspect ratio to calculate width
+      const height = maxSize;
+      const width = Math.round(maxSize * aspectRatio);
       return {
-        width: Math.round(maxSize * aspectRatio),
-        height: maxSize,
+        width,
+        height,
       };
     }
   }
