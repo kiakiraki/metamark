@@ -51,17 +51,46 @@ export class CanvasRenderer {
     // Calculate scale factor based on canvas size
     const scaleFactor = Math.min(settings.width, settings.height) / 1000; // Base scale for 1000px
 
+    // Ensure Film font is loaded before drawing overlay
+    if (template.id === 'film') {
+      try {
+        const fontSize = Math.max(12, template.style.fontSize * scaleFactor);
+        // Attempt to load DotGothic16; ignore if not supported
+        // @ts-expect-error: document.fonts may not exist in all environments
+        if (document && document.fonts && document.fonts.load) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (document as any).fonts.load(`${fontSize}px DotGothic16`);
+        }
+      } catch {
+        // noop
+      }
+    }
+
     // Calculate dynamic position based on overlay position setting and exif data
+    // For Film style, fix overlay position: landscape -> bottom-right, portrait -> top-right
+    const isPortraitImage = image.height > image.width;
+    const effectiveSettings: CanvasSettings =
+      template.id === 'film'
+        ? {
+            ...settings,
+            overlayPosition: isPortraitImage ? 'top-right' : 'bottom-right',
+          }
+        : settings;
+
     const dynamicTemplate = this.calculateDynamicPosition(
       template,
-      settings,
+      effectiveSettings,
       settings.width,
       settings.height,
-      exifData
+      exifData,
+      { drawX, drawY, drawWidth, drawHeight }
     );
 
     // Draw template overlay with scaling
-    this.drawTemplate(ctx, dynamicTemplate, exifData, scaleFactor);
+    this.drawTemplate(ctx, dynamicTemplate, exifData, scaleFactor, {
+      imageIsPortrait: isPortraitImage,
+      overlayPosition: effectiveSettings.overlayPosition,
+    });
 
     // Return as data URL
     return canvas.toDataURL(
@@ -75,7 +104,13 @@ export class CanvasRenderer {
     settings: CanvasSettings,
     canvasWidth: number,
     canvasHeight: number,
-    exifData: NormalizedExifData
+    exifData: NormalizedExifData,
+    drawRect?: {
+      drawX: number;
+      drawY: number;
+      drawWidth: number;
+      drawHeight: number;
+    }
   ): Template {
     const { overlayPosition } = settings;
 
@@ -94,22 +129,45 @@ export class CanvasRenderer {
 
     let x: number, y: number;
 
+    // If we know where the image was drawn, align overlay to the image bounds
+    const hasDrawRect = !!drawRect;
+    const imageLeft = hasDrawRect ? drawRect!.drawX : 0;
+    const imageTop = hasDrawRect ? drawRect!.drawY : 0;
+    const imageRight = hasDrawRect
+      ? drawRect!.drawX + drawRect!.drawWidth
+      : canvasWidth;
+    const imageBottom = hasDrawRect
+      ? drawRect!.drawY + drawRect!.drawHeight
+      : canvasHeight;
+
+    const isFilm = template.id === 'film';
+    const extraInset = isFilm ? margin : 0; // nudge inward for Film
+
     switch (overlayPosition) {
       case 'top-left':
-        x = margin;
-        y = margin;
+        x = (hasDrawRect ? imageLeft : 0) + margin;
+        y = (hasDrawRect ? imageTop : 0) + margin;
         break;
       case 'top-right':
-        x = canvasWidth - scaledWidth - margin;
-        y = margin;
+        x =
+          (hasDrawRect ? imageRight : canvasWidth) -
+          scaledWidth -
+          (margin + extraInset);
+        y = (hasDrawRect ? imageTop : 0) + (margin + extraInset);
         break;
       case 'bottom-left':
-        x = margin;
-        y = canvasHeight - scaledHeight - margin;
+        x = (hasDrawRect ? imageLeft : 0) + margin;
+        y = (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
         break;
       case 'bottom-right':
-        x = canvasWidth - scaledWidth - margin;
-        y = canvasHeight - scaledHeight - margin;
+        x =
+          (hasDrawRect ? imageRight : canvasWidth) -
+          scaledWidth -
+          (margin + extraInset);
+        y =
+          (hasDrawRect ? imageBottom : canvasHeight) -
+          scaledHeight -
+          (margin + extraInset);
         break;
       default:
         x = template.position.x;
@@ -216,7 +274,15 @@ export class CanvasRenderer {
     ctx: CanvasRenderingContext2D,
     template: Template,
     exifData: NormalizedExifData,
-    scaleFactor: number = 1
+    scaleFactor: number = 1,
+    options?: {
+      imageIsPortrait?: boolean;
+      overlayPosition?:
+        | 'top-left'
+        | 'top-right'
+        | 'bottom-left'
+        | 'bottom-right';
+    }
   ): void {
     const { style, position, fields } = template;
 
@@ -282,16 +348,66 @@ export class CanvasRenderer {
     ctx.globalAlpha = 1;
     ctx.fillStyle = style.textColor;
 
-    let currentY = scaledY + scaledPadding + scaledFontSize;
-    const textX =
-      position.alignment === 'center'
-        ? scaledX + scaledWidth / 2
-        : scaledX + scaledPadding;
+    // Improve readability for film-style (no background) with a soft glow
+    if (template.id === 'film') {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowBlur = 6 * Math.max(1, scaleFactor);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else {
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
 
-    // Render all wrapped text lines
-    for (const line of allTextLines) {
-      ctx.fillText(line, textX, currentY);
-      currentY += lineHeight;
+    const shouldRotate =
+      template.id === 'film' && options?.imageIsPortrait === true;
+
+    if (shouldRotate && options?.overlayPosition?.includes('right')) {
+      // Rotate 90 degrees at the right edge for portrait images
+      const isTop = options.overlayPosition === 'top-right';
+      const anchorX = scaledX + scaledWidth - scaledPadding;
+      const anchorY = isTop
+        ? scaledY + scaledPadding
+        : scaledY + (scaledHeight - scaledPadding);
+
+      ctx.save();
+      ctx.translate(anchorX, anchorY);
+      // Reverse rotation direction per feedback
+      ctx.rotate(isTop ? -Math.PI / 2 : Math.PI / 2);
+      const prevAlign = ctx.textAlign;
+      const prevBaseline = ctx.textBaseline;
+      // Anchor to the edge and draw inward to avoid clipping
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+
+      // Render lines along the long edge
+      let offset = 0;
+      for (const line of allTextLines) {
+        // With right alignment, x is the right edge of the text in rotated coordinates
+        ctx.fillText(line, isTop ? -offset : offset, 0);
+        offset += lineHeight;
+      }
+
+      // Restore context
+      ctx.textAlign = prevAlign;
+      ctx.textBaseline = prevBaseline as CanvasTextBaseline;
+      ctx.restore();
+    } else {
+      let currentY = scaledY + scaledPadding + scaledFontSize;
+      const textX =
+        position.alignment === 'center'
+          ? scaledX + scaledWidth / 2
+          : position.alignment === 'right'
+            ? scaledX + scaledWidth - scaledPadding
+            : scaledX + scaledPadding;
+
+      // Render all wrapped text lines
+      for (const line of allTextLines) {
+        ctx.fillText(line, textX, currentY);
+        currentY += lineHeight;
+      }
     }
   }
 
