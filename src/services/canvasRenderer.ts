@@ -140,22 +140,34 @@ export class CanvasRenderer {
       ? drawRect!.drawY + drawRect!.drawHeight
       : canvasHeight;
 
+    const isFilm = template.id === 'film';
+    const extraInset = isFilm ? margin : 0; // nudge inward for Film
+
     switch (overlayPosition) {
       case 'top-left':
         x = (hasDrawRect ? imageLeft : 0) + margin;
         y = (hasDrawRect ? imageTop : 0) + margin;
         break;
       case 'top-right':
-        x = (hasDrawRect ? imageRight : canvasWidth) - scaledWidth - margin;
-        y = (hasDrawRect ? imageTop : 0) + margin;
+        x =
+          (hasDrawRect ? imageRight : canvasWidth) -
+          scaledWidth -
+          (margin + extraInset);
+        y = (hasDrawRect ? imageTop : 0) + (margin + extraInset);
         break;
       case 'bottom-left':
         x = (hasDrawRect ? imageLeft : 0) + margin;
         y = (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
         break;
       case 'bottom-right':
-        x = (hasDrawRect ? imageRight : canvasWidth) - scaledWidth - margin;
-        y = (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
+        x =
+          (hasDrawRect ? imageRight : canvasWidth) -
+          scaledWidth -
+          (margin + extraInset);
+        y =
+          (hasDrawRect ? imageBottom : canvasHeight) -
+          scaledHeight -
+          (margin + extraInset);
         break;
       default:
         x = template.position.x;
@@ -362,16 +374,19 @@ export class CanvasRenderer {
 
       ctx.save();
       ctx.translate(anchorX, anchorY);
-      ctx.rotate(isTop ? Math.PI / 2 : -Math.PI / 2);
+      // Reverse rotation direction per feedback
+      ctx.rotate(isTop ? -Math.PI / 2 : Math.PI / 2);
       const prevAlign = ctx.textAlign;
       const prevBaseline = ctx.textBaseline;
-      ctx.textAlign = 'left';
+      // Anchor to the edge and draw inward to avoid clipping
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
 
       // Render lines along the long edge
       let offset = 0;
       for (const line of allTextLines) {
-        ctx.fillText(line, isTop ? offset : -offset, 0);
+        // With right alignment, x is the right edge of the text in rotated coordinates
+        ctx.fillText(line, isTop ? -offset : offset, 0);
         offset += lineHeight;
       }
 
