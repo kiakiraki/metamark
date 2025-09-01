@@ -17,7 +17,6 @@ export function TemplateSelector() {
   }[] = [
     { key: 'minimal', name: 'Minimal', description: 'Clean and simple' },
     { key: 'classic', name: 'Classic', description: 'Traditional layout' },
-    { key: 'modern', name: 'Modern', description: 'Contemporary design' },
     { key: 'film', name: 'Film', description: 'Vintage style' },
     { key: 'technical', name: 'Technical', description: 'Detailed specs' },
   ];
