@@ -12,4 +12,5 @@ pattern = "metamark.kiakiraki.dev"
 custom_domain = true
 
 [env.preview]
-# Inherit top-level settings; no custom domain for preview (uses workers.dev)
+name = "metamark"
+workers_dev = true
