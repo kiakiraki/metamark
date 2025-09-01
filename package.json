@@ -10,8 +10,8 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler deploy --env preview"
+    "deploy": "npx wrangler@3 deploy",
+    "deploy:preview": "npx wrangler@3 deploy --env preview"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
