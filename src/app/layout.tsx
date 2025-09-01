@@ -1,6 +1,5 @@
-/* eslint-disable @next/next/no-page-custom-font */
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist, Geist_Mono, DotGothic16 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
@@ -12,6 +11,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+});
+
+// Filmテンプレート用フォントは next/font で自前配信
+const dotGothic = DotGothic16({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-dotgothic',
 });
 
 export const metadata: Metadata = {
@@ -26,21 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        {/* Dot-matrix style font for Film template */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin=""
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+      <head />
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${dotGothic.variable} antialiased`}
       >
         <ThemeProvider>{children}</ThemeProvider>
       </body>

@@ -1,8 +1,11 @@
 name = "metamark"
-compatibility_date = "2025-08-27"
+compatibility_date = "2025-08-31"
+main = "src/worker.ts"
 
 [assets]
 directory = "dist"
+binding = "ASSETS"
+html_handling = "auto"
 
 [[routes]]
 pattern = "metamark.kiakiraki.dev"

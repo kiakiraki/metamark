@@ -48,11 +48,11 @@ npm run build
 - **State Management**: Zustand
 - **EXIF Processing**: exifr
 - **File Upload**: react-dropzone
-- **Deployment**: Cloudflare Workers/Pages
+- **Deployment**: Cloudflare Workers
 
 ## 🔧 Configuration
 
-### Cloudflare Workers/Pages Setup
+### Cloudflare Workers Setup
 
 1. **Build Command**: `npm run build`
 2. **Output Directory**: `dist`
@@ -63,11 +63,11 @@ npm run build
 
 ### Security Headers
 
-The app includes security headers in `_headers`:
-
-- Content Security Policy
-- Cross-Origin Policies
-- XSS Protection
+Security headers are applied in the Worker (`src/worker.ts`), including:
+- Content Security Policy (CSP)
+- Cross-Origin Policies (COOP/COEP)
+- Common hardening headers (XFO, XCTO, HSTS, Referrer-Policy)
+Note: `public/_headers` is not used on Workers.
 
 ## 📁 Project Structure
 
@@ -88,9 +88,9 @@ src/
 ## 🎨 Templates
 
 - **Minimal**: Clean, essential information
-- **Classic**: Traditional film-inspired layout
-- **Modern**: Contemporary design with icons
-- _More templates coming soon..._
+- **Classic**: Traditional layout
+- **Film**: Retro film-camera date imprint
+- **Technical**: Detailed specs (monospaced)
 
 ## 📋 Requirements
 
@@ -112,7 +112,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🚀 Deployment
 
-### Cloudflare Workers/Pages
+### Cloudflare Workers
 
 This project is configured for deployment to Cloudflare Workers with custom domain support:
 
@@ -129,14 +129,14 @@ This project is configured for deployment to Cloudflare Workers with custom doma
 2. **Deployment Commands**:
 
    ```bash
-   # Build the project
+   # Build the project (static export)
    npm run build
 
-   # Deploy to preview
+   # Deploy to preview (Workers)
    npm run deploy:preview
 
-   # Deploy to production (metamark.kiakiraki.dev)
-   npm run deploy:production
+   # Deploy to production (Workers)
+   npm run deploy
    ```
 
 3. **Configuration**:
@@ -144,11 +144,9 @@ This project is configured for deployment to Cloudflare Workers with custom doma
    - **Output Directory**: `dist/`
    - **Wrangler Config**: `wrangler.toml`
 
-4. **Alternative: Cloudflare Pages Dashboard**:
-   - Framework preset: `Next.js (Static HTML Export)`
-   - Build command: `npm run build`
-   - Build output directory: `dist`
-   - Deploy command: leave empty
+4. **Notes**:
+   - The Worker serves files from `dist/` and injects security headers.
+   - Ensure DNS/custom domain is mapped to the Worker route in `wrangler.toml`.
 
 ## 🎯 MVP Status
 
@@ -156,11 +154,11 @@ This project is configured for deployment to Cloudflare Workers with custom doma
 
 - Image upload with drag & drop
 - EXIF metadata extraction
-- Basic template system (Minimal, Classic, Modern)
+- Basic template system (Minimal, Classic, Technical, Film)
 - Canvas rendering with overlays
 - High-quality image export
 - Responsive UI with dark/light themes
-- Static site generation for Cloudflare Workers/Pages
+- Static site generation for Cloudflare Workers
 
 🔄 **Coming Next**:
 

@@ -6,12 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
+    "preview": "npx serve dist -l 3000",
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "deploy": "wrangler pages deploy",
-    "deploy:preview": "wrangler pages deploy --compatibility-date=2025-08-27",
-    "deploy:production": "wrangler pages deploy --env production"
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler deploy --env preview"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
