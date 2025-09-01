@@ -5,8 +5,11 @@ main = "src/worker.ts"
 [assets]
 directory = "dist"
 binding = "ASSETS"
-html_handling = "auto"
+html_handling = "force-trailing-slash"
 
 [[routes]]
 pattern = "metamark.kiakiraki.dev"
 custom_domain = true
+
+[env.preview]
+# Inherit top-level settings; no custom domain for preview (uses workers.dev)
