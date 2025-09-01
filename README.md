@@ -64,10 +64,11 @@ npm run build
 ### Security Headers
 
 Security headers are applied in the Worker (`src/worker.ts`), including:
+
 - Content Security Policy (CSP)
 - Cross-Origin Policies (COOP/COEP)
 - Common hardening headers (XFO, XCTO, HSTS, Referrer-Policy)
-Note: `public/_headers` is not used on Workers.
+  Note: `public/_headers` is not used on Workers.
 
 ## 📁 Project Structure
 

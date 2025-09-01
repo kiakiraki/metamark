@@ -22,7 +22,9 @@ const worker = {
     // If not found and the client accepts HTML, fall back to index (for pretty URLs)
     if (response.status === 404 && acceptsHtml(request)) {
       const indexUrl = new URL('/index.html', url.origin);
-      response = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+      response = await env.ASSETS.fetch(
+        new Request(indexUrl.toString(), request)
+      );
     }
 
     // Clone response and add headers
@@ -80,5 +82,8 @@ function setSecurityHeaders(res: Response): void {
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   res.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains; preload'
+  );
 }
