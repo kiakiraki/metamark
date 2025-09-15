@@ -412,9 +412,11 @@ export class CanvasRenderer {
   }
 
   static async renderToBlob(options: RenderOptions): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const { canvas, settings } = options;
+    await this.render(options);
 
+    const { canvas, settings } = options;
+
+    return new Promise((resolve, reject) => {
       canvas.toBlob(
         (blob) => {
           if (blob) {
