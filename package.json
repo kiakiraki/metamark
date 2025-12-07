@@ -24,7 +24,7 @@
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-dropzone": "^14.3.8",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
