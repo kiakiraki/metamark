@@ -75,28 +75,25 @@ export class CanvasRenderer {
       try {
         const fontSize = Math.max(12, template.style.fontSize * scaleFactor);
         // Attempt to load DotGothic16; ignore if not supported
-        // @ts-expect-error: document.fonts may not exist in all environments
-        if (document && document.fonts && document.fonts.load) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (document as any).fonts.load(`${fontSize}px DotGothic16`);
+        const fonts = typeof document !== 'undefined' ? document.fonts : null;
+        if (fonts?.load) {
+          await fonts.load(`${fontSize}px DotGothic16`);
         }
       } catch {
         // noop
       }
     } else if (template.id === 'caption') {
       try {
-        const bodyFontSize = Math.max(12, template.style.fontSize * scaleFactor);
+        const bodyFontSize = Math.max(
+          12,
+          template.style.fontSize * scaleFactor
+        );
         const titleFontSize = Math.max(bodyFontSize * 1.6, bodyFontSize + 6);
-        // @ts-expect-error: document.fonts may not exist in all environments
-        if (document && document.fonts && document.fonts.load) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fonts = typeof document !== 'undefined' ? document.fonts : null;
+        if (fonts?.load) {
           await Promise.all([
-            (document as any).fonts.load(
-              `${bodyFontSize}px ${template.style.fontFamily}`
-            ),
-            (document as any).fonts.load(
-              `600 ${titleFontSize}px ${template.style.fontFamily}`
-            ),
+            fonts.load(`${bodyFontSize}px ${template.style.fontFamily}`),
+            fonts.load(`600 ${titleFontSize}px ${template.style.fontFamily}`),
           ]);
         }
       } catch {
@@ -187,9 +184,7 @@ export class CanvasRenderer {
 
     if (isBottomPadding) {
       x = hasDrawRect ? imageLeft : 0;
-      y = hasDrawRect
-        ? imageBottom
-        : Math.max(0, canvasHeight - scaledHeight);
+      y = hasDrawRect ? imageBottom : Math.max(0, canvasHeight - scaledHeight);
     } else {
       const isFilm = template.id === 'film';
       const extraInset = isFilm ? margin : 0; // nudge inward for Film
@@ -208,7 +203,8 @@ export class CanvasRenderer {
           break;
         case 'bottom-left':
           x = (hasDrawRect ? imageLeft : 0) + margin;
-          y = (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
+          y =
+            (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
           break;
         case 'bottom-right':
           x =
@@ -280,7 +276,8 @@ export class CanvasRenderer {
     tempCtx.font = `${scaledFontSize}px ${template.style.fontFamily}`;
 
     // Calculate available width for text
-    const templateWidth = availableWidth ?? template.position.width * scaleFactor;
+    const templateWidth =
+      availableWidth ?? template.position.width * scaleFactor;
     const maxTextWidth = templateWidth - scaledPadding * 2;
 
     // Count total lines including wrapped text
@@ -337,9 +334,10 @@ export class CanvasRenderer {
     return lines;
   }
 
-  private static getCaptionCameraParts(
-    exifData: NormalizedExifData
-  ): { make: string | null; model: string | null } {
+  private static getCaptionCameraParts(exifData: NormalizedExifData): {
+    make: string | null;
+    model: string | null;
+  } {
     let make = exifData.cameraMake;
     let model = exifData.cameraModel;
 

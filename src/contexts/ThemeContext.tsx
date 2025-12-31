@@ -1,6 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useSyncExternalStore,
+} from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -12,37 +17,81 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const themeStore = (() => {
+  let currentTheme: Theme = 'system';
+  const listeners = new Set<() => void>();
+
+  const getSnapshot = () => {
+    if (typeof window === 'undefined') return currentTheme;
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    return savedTheme ?? currentTheme;
+  };
+
+  const getServerSnapshot = () => 'system';
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    if (typeof window === 'undefined') {
+      return () => listeners.delete(listener);
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'theme') {
+        listener();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      listeners.delete(listener);
+      window.removeEventListener('storage', handleStorage);
+    };
+  };
+
+  const setTheme = (next: Theme) => {
+    currentTheme = next;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', next);
+    }
+    listeners.forEach((listener) => listener());
+  };
+
+  return { getSnapshot, getServerSnapshot, subscribe, setTheme };
+})();
+
+const subscribeSystemTheme = (listener: () => void) => {
+  if (typeof window === 'undefined') {
+    return () => undefined;
+  }
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleChange = () => listener();
+  mediaQuery.addEventListener('change', handleChange);
+  return () => mediaQuery.removeEventListener('change', handleChange);
+};
+
+const getSystemSnapshot = () => {
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+};
+
+const getServerSystemSnapshot = () => 'light';
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('system');
-  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light');
-  const [isInitialized, setIsInitialized] = useState(false);
+  const theme = useSyncExternalStore(
+    themeStore.subscribe,
+    themeStore.getSnapshot,
+    themeStore.getServerSnapshot
+  );
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    getSystemSnapshot,
+    getServerSystemSnapshot
+  );
 
   // Derived value: actualTheme is calculated from theme and systemTheme
   const actualTheme = theme === 'system' ? systemTheme : theme;
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-    setIsInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
-    };
-
-    handleChange();
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  useEffect(() => {
-    if (!isInitialized) return;
-
     const root = document.documentElement;
 
     if (actualTheme === 'dark') {
@@ -50,13 +99,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove('dark');
     }
-
-    // Save theme to localStorage
-    localStorage.setItem('theme', theme);
-  }, [theme, actualTheme, isInitialized]);
+  }, [actualTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, actualTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, setTheme: themeStore.setTheme, actualTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );
