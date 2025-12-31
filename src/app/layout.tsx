@@ -1,24 +1,7 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, DotGothic16 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
-
-// Filmテンプレート用フォントは next/font で自前配信
-const dotGothic = DotGothic16({
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-dotgothic',
-});
+import { geistSans, geistMono, dotGothic, besley } from '@/styles/fonts';
 
 export const metadata: Metadata = {
   title: 'MetaMark - EXIF Metadata Overlay',
@@ -34,7 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <head />
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dotGothic.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${dotGothic.variable} ${besley.variable} antialiased`}
       >
         <ThemeProvider>{children}</ThemeProvider>
       </body>

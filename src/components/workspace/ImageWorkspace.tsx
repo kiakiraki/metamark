@@ -91,12 +91,18 @@ export function ImageWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentImage?.id, normalizedData]);
 
-  // Calculate optimal container height based on image aspect ratio
-  const calculateContainerHeight = useCallback(() => {
-    if (!currentImage) {
+  const updateCanvasDisplaySize = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !currentImage) {
       setContainerHeight(null);
       return;
     }
+
+    const devicePixelRatio =
+      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const logicalWidth = canvas.width / devicePixelRatio;
+    const logicalHeight = canvas.height / devicePixelRatio;
+    const canvasAspectRatio = logicalWidth / logicalHeight;
 
     // Responsive breakpoints
     const windowWidth =
@@ -104,47 +110,61 @@ export function ImageWorkspace() {
     const isMobile = windowWidth < 768;
     const isTablet = windowWidth < 1024;
 
-    // Dynamic max dimensions based on screen size
-    const maxWidth = isMobile ? 300 : isTablet ? 500 : 700;
-    const maxHeight = isMobile ? 400 : isTablet ? 500 : 600;
-    const minHeight = isMobile ? 250 : 300;
+    // Dynamic max dimensions based on screen size with margins
+    const horizontalMargin = 40; // 20px on each side
 
-    const imageAspectRatio = currentImage.width / currentImage.height;
+    const maxDisplayWidth = isMobile
+      ? Math.min(300, windowWidth - horizontalMargin)
+      : isTablet
+        ? Math.min(500, windowWidth - horizontalMargin)
+        : Math.min(700, windowWidth - horizontalMargin);
 
-    let optimalWidth = Math.min(maxWidth, currentImage.width);
-    let optimalHeight = optimalWidth / imageAspectRatio;
+    const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
 
-    // If height exceeds max, scale down
-    if (optimalHeight > maxHeight) {
-      optimalHeight = maxHeight;
-      optimalWidth = optimalHeight * imageAspectRatio;
+    let displayWidth, displayHeight;
+
+    if (canvasAspectRatio > maxDisplayWidth / maxDisplayHeight) {
+      // Canvas is wider - fit to max width
+      displayWidth = Math.min(maxDisplayWidth, logicalWidth);
+      displayHeight = displayWidth / canvasAspectRatio;
+    } else {
+      // Canvas is taller - fit to max height
+      displayHeight = Math.min(maxDisplayHeight, logicalHeight);
+      displayWidth = displayHeight * canvasAspectRatio;
     }
 
-    // Ensure minimum height
-    optimalHeight = Math.max(minHeight, optimalHeight);
+    // Ensure the display size doesn't exceed viewport constraints
+    if (displayWidth > maxDisplayWidth) {
+      displayWidth = maxDisplayWidth;
+      displayHeight = displayWidth / canvasAspectRatio;
+    }
+
+    if (displayHeight > maxDisplayHeight) {
+      displayHeight = maxDisplayHeight;
+      displayWidth = displayHeight * canvasAspectRatio;
+    }
+
+    // Set canvas display size to the responsive display size
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
 
     // Add padding for controls and info - include top and bottom margins
     const topMargin = 20; // marginTop from canvas style
     const bottomMargin = 20; // matching bottom margin
     const infoBarHeight = 40; // space for info bar at bottom
     const paddingHeight = topMargin + bottomMargin + infoBarHeight;
-    setContainerHeight(optimalHeight + paddingHeight);
+    setContainerHeight(displayHeight + paddingHeight);
   }, [currentImage]);
-
-  useEffect(() => {
-    calculateContainerHeight();
-  }, [calculateContainerHeight]);
 
   // Recalculate on window resize
   useEffect(() => {
     const handleResize = () => {
-      calculateContainerHeight();
-      // Re-render canvas with new responsive size will be triggered by other useEffect
+      updateCanvasDisplaySize();
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [calculateContainerHeight]);
+  }, [updateCanvasDisplaySize]);
 
   const renderCanvas = async () => {
     if (!currentImage || !selectedTemplate || !canvasRef.current) return;
@@ -164,6 +184,8 @@ export function ImageWorkspace() {
       if (!exifData) {
         exifData = {
           camera: 'Loading...',
+          cameraMake: 'Loading...',
+          cameraModel: 'Loading...',
           lens: 'Loading...',
           focalLength: 'Loading...',
           aperture: 'Loading...',
@@ -185,52 +207,7 @@ export function ImageWorkspace() {
           height,
         },
       });
-
-      // Calculate responsive display size based on window size
-      const windowWidth =
-        typeof window !== 'undefined' ? window.innerWidth : 1024;
-      const isMobile = windowWidth < 768;
-      const isTablet = windowWidth < 1024;
-
-      // Dynamic max dimensions based on screen size with margins
-      const horizontalMargin = 40; // 20px on each side
-
-      const maxDisplayWidth = isMobile
-        ? Math.min(300, windowWidth - horizontalMargin)
-        : isTablet
-          ? Math.min(500, windowWidth - horizontalMargin)
-          : Math.min(700, windowWidth - horizontalMargin);
-
-      const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
-
-      const imageAspectRatio = currentImage.width / currentImage.height;
-
-      let displayWidth, displayHeight;
-
-      if (imageAspectRatio > maxDisplayWidth / maxDisplayHeight) {
-        // Image is wider - fit to max width
-        displayWidth = Math.min(maxDisplayWidth, width);
-        displayHeight = displayWidth / imageAspectRatio;
-      } else {
-        // Image is taller - fit to max height
-        displayHeight = Math.min(maxDisplayHeight, height);
-        displayWidth = displayHeight * imageAspectRatio;
-      }
-
-      // Ensure the display size doesn't exceed viewport constraints
-      if (displayWidth > maxDisplayWidth) {
-        displayWidth = maxDisplayWidth;
-        displayHeight = displayWidth / imageAspectRatio;
-      }
-
-      if (displayHeight > maxDisplayHeight) {
-        displayHeight = maxDisplayHeight;
-        displayWidth = displayHeight * imageAspectRatio;
-      }
-
-      // Set canvas display size to the responsive display size
-      canvasRef.current.style.width = `${displayWidth}px`;
-      canvasRef.current.style.height = `${displayHeight}px`;
+      updateCanvasDisplaySize();
     } catch (error) {
       console.error('Error rendering canvas:', error);
     } finally {
