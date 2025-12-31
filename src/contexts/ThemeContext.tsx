@@ -21,13 +21,13 @@ const themeStore = (() => {
   let currentTheme: Theme = 'system';
   const listeners = new Set<() => void>();
 
-  const getSnapshot = () => {
+  const getSnapshot = (): Theme => {
     if (typeof window === 'undefined') return currentTheme;
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     return savedTheme ?? currentTheme;
   };
 
-  const getServerSnapshot = () => 'system';
+  const getServerSnapshot = (): Theme => 'system';
 
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
@@ -67,22 +67,22 @@ const subscribeSystemTheme = (listener: () => void) => {
   return () => mediaQuery.removeEventListener('change', handleChange);
 };
 
-const getSystemSnapshot = () => {
+const getSystemSnapshot = (): 'light' | 'dark' => {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light';
 };
 
-const getServerSystemSnapshot = () => 'light';
+const getServerSystemSnapshot = (): 'light' | 'dark' => 'light';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const theme = useSyncExternalStore(
+  const theme = useSyncExternalStore<Theme>(
     themeStore.subscribe,
     themeStore.getSnapshot,
     themeStore.getServerSnapshot
   );
-  const systemTheme = useSyncExternalStore(
+  const systemTheme = useSyncExternalStore<'light' | 'dark'>(
     subscribeSystemTheme,
     getSystemSnapshot,
     getServerSystemSnapshot
