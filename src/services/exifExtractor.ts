@@ -46,6 +46,8 @@ export class ExifExtractor {
   static normalizeExifData(exifData: ExifData): NormalizedExifData {
     return {
       camera: this.formatCamera(exifData.camera),
+      cameraMake: this.formatCameraMake(exifData.camera?.make),
+      cameraModel: this.formatCameraModel(exifData.camera?.model),
       lens: this.formatLens(exifData.lens),
       focalLength: this.formatFocalLength(exifData.lens?.focalLength),
       iso: this.formatISO(exifData.settings?.iso),
@@ -82,6 +84,18 @@ export class ExifExtractor {
     }
 
     return camera.make || camera.model || null;
+  }
+
+  private static formatCameraMake(make?: string): string | null {
+    if (!make) return null;
+    const trimmed = make.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  private static formatCameraModel(model?: string): string | null {
+    if (!model) return null;
+    const trimmed = model.trim();
+    return trimmed ? trimmed : null;
   }
 
   private static formatLens(lens?: {

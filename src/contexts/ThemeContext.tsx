@@ -1,6 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useSyncExternalStore,
+} from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -12,25 +17,75 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Helper function to get system theme
-function getSystemTheme(): 'light' | 'dark' {
+const themeStore = (() => {
+  let currentTheme: Theme = 'system';
+  const listeners = new Set<() => void>();
+
+  const getSnapshot = (): Theme => {
+    if (typeof window === 'undefined') return currentTheme;
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    return savedTheme ?? currentTheme;
+  };
+
+  const getServerSnapshot = (): Theme => 'system';
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    if (typeof window === 'undefined') {
+      return () => listeners.delete(listener);
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'theme') {
+        listener();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      listeners.delete(listener);
+      window.removeEventListener('storage', handleStorage);
+    };
+  };
+
+  const setTheme = (next: Theme) => {
+    currentTheme = next;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', next);
+    }
+    listeners.forEach((listener) => listener());
+  };
+
+  return { getSnapshot, getServerSnapshot, subscribe, setTheme };
+})();
+
+const subscribeSystemTheme = (listener: () => void) => {
+  if (typeof window === 'undefined') {
+    return () => undefined;
+  }
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleChange = () => listener();
+  mediaQuery.addEventListener('change', handleChange);
+  return () => mediaQuery.removeEventListener('change', handleChange);
+};
+
+const getSystemSnapshot = (): 'light' | 'dark' => {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light';
-}
+};
 
-// Helper function to get initial theme
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'system';
-  const savedTheme = localStorage.getItem('theme') as Theme;
-  return savedTheme || 'system';
-}
+const getServerSystemSnapshot = (): 'light' | 'dark' => 'light';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(
-    getSystemTheme
+  const theme = useSyncExternalStore<Theme>(
+    themeStore.subscribe,
+    themeStore.getSnapshot,
+    themeStore.getServerSnapshot
+  );
+  const systemTheme = useSyncExternalStore<'light' | 'dark'>(
+    subscribeSystemTheme,
+    getSystemSnapshot,
+    getServerSystemSnapshot
   );
 
   // Derived value: actualTheme is calculated from theme and systemTheme
@@ -44,24 +99,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove('dark');
     }
-
-    // Save theme to localStorage
-    localStorage.setItem('theme', theme);
-  }, [theme, actualTheme]);
-
-  useEffect(() => {
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [actualTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, actualTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, setTheme: themeStore.setTheme, actualTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );

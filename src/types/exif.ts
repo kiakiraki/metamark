@@ -25,6 +25,8 @@ export interface ExifData {
 
 export interface NormalizedExifData {
   camera: string | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
   lens: string | null;
   focalLength: string | null;
   iso: string | null;

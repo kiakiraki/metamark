@@ -16,6 +16,8 @@ export interface TemplatePosition {
   alignment: 'left' | 'center' | 'right';
 }
 
+export type TemplateLayout = 'overlay' | 'bottom-padding';
+
 export type PositionPreset =
   | 'top-left'
   | 'top-right'
@@ -26,6 +28,7 @@ export interface Template {
   id: string;
   name: string;
   description: string;
+  layout?: TemplateLayout;
   style: TemplateStyle;
   position: TemplatePosition;
   fields: TemplateField[];
@@ -38,4 +41,9 @@ export interface TemplateField {
   format?: (value: string | null) => string;
 }
 
-export type TemplatePreset = 'minimal' | 'classic' | 'film' | 'technical';
+export type TemplatePreset =
+  | 'minimal'
+  | 'classic'
+  | 'film'
+  | 'technical'
+  | 'caption';

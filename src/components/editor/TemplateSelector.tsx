@@ -19,6 +19,7 @@ export function TemplateSelector() {
     { key: 'classic', name: 'Classic', description: 'Traditional layout' },
     { key: 'film', name: 'Film', description: 'Vintage style' },
     { key: 'technical', name: 'Technical', description: 'Detailed specs' },
+    { key: 'caption', name: 'Caption', description: 'Black footer bar' },
   ];
 
   return (

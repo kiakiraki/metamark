@@ -15,51 +15,86 @@ export class CanvasRenderer {
     const devicePixelRatio =
       typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
+    const baseWidth = settings.width;
+    const baseHeight = settings.height;
+    const scaleFactor = Math.min(baseWidth, baseHeight) / 1000; // Base scale for 1000px
+    const isBottomPadding = template.layout === 'bottom-padding';
+    const bottomPaddingHeight = isBottomPadding
+      ? this.calculateDynamicTemplateHeight(
+          template,
+          exifData,
+          scaleFactor,
+          baseWidth
+        )
+      : 0;
+    const canvasWidth = baseWidth;
+    const canvasHeight = baseHeight + bottomPaddingHeight;
+
     // Set actual size in memory (scaled for device pixel ratio)
-    canvas.width = settings.width * devicePixelRatio;
-    canvas.height = settings.height * devicePixelRatio;
+    canvas.width = canvasWidth * devicePixelRatio;
+    canvas.height = canvasHeight * devicePixelRatio;
 
     // Scale the context to ensure correct drawing operations
     ctx.scale(devicePixelRatio, devicePixelRatio);
 
     // Clear canvas
-    ctx.clearRect(0, 0, settings.width, settings.height);
-
-    // Use the original image aspect ratio for accurate drawing
-    const originalImageAspectRatio = image.width / image.height;
-    const canvasAspectRatio = settings.width / settings.height;
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     let drawWidth, drawHeight, drawX, drawY;
 
-    if (originalImageAspectRatio > canvasAspectRatio) {
-      // Image is wider than canvas - fit width, calculate height from original aspect ratio
-      drawWidth = settings.width;
-      drawHeight = settings.width / originalImageAspectRatio;
+    if (isBottomPadding) {
+      drawWidth = baseWidth;
+      drawHeight = baseHeight;
       drawX = 0;
-      drawY = (settings.height - drawHeight) / 2;
-    } else {
-      // Image is taller than canvas - fit height, calculate width from original aspect ratio
-      drawHeight = settings.height;
-      drawWidth = settings.height * originalImageAspectRatio;
-      drawX = (settings.width - drawWidth) / 2;
       drawY = 0;
+    } else {
+      // Use the original image aspect ratio for accurate drawing
+      const originalImageAspectRatio = image.width / image.height;
+      const canvasAspectRatio = canvasWidth / canvasHeight;
+
+      if (originalImageAspectRatio > canvasAspectRatio) {
+        // Image is wider than canvas - fit width, calculate height from original aspect ratio
+        drawWidth = canvasWidth;
+        drawHeight = canvasWidth / originalImageAspectRatio;
+        drawX = 0;
+        drawY = (canvasHeight - drawHeight) / 2;
+      } else {
+        // Image is taller than canvas - fit height, calculate width from original aspect ratio
+        drawHeight = canvasHeight;
+        drawWidth = canvasHeight * originalImageAspectRatio;
+        drawX = (canvasWidth - drawWidth) / 2;
+        drawY = 0;
+      }
     }
 
     // Draw image with preserved aspect ratio
     ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-
-    // Calculate scale factor based on canvas size
-    const scaleFactor = Math.min(settings.width, settings.height) / 1000; // Base scale for 1000px
 
     // Ensure Film font is loaded before drawing overlay
     if (template.id === 'film') {
       try {
         const fontSize = Math.max(12, template.style.fontSize * scaleFactor);
         // Attempt to load DotGothic16; ignore if not supported
-        // @ts-expect-error: document.fonts may not exist in all environments
-        if (document && document.fonts && document.fonts.load) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (document as any).fonts.load(`${fontSize}px DotGothic16`);
+        const fonts = typeof document !== 'undefined' ? document.fonts : null;
+        if (fonts?.load) {
+          await fonts.load(`${fontSize}px DotGothic16`);
+        }
+      } catch {
+        // noop
+      }
+    } else if (template.id === 'caption') {
+      try {
+        const bodyFontSize = Math.max(
+          12,
+          template.style.fontSize * scaleFactor
+        );
+        const titleFontSize = Math.max(bodyFontSize * 1.6, bodyFontSize + 6);
+        const fonts = typeof document !== 'undefined' ? document.fonts : null;
+        if (fonts?.load) {
+          await Promise.all([
+            fonts.load(`${bodyFontSize}px ${template.style.fontFamily}`),
+            fonts.load(`600 ${titleFontSize}px ${template.style.fontFamily}`),
+          ]);
         }
       } catch {
         // noop
@@ -69,21 +104,24 @@ export class CanvasRenderer {
     // Calculate dynamic position based on overlay position setting and exif data
     // For Film style, fix overlay position: landscape -> bottom-right, portrait -> top-right
     const isPortraitImage = image.height > image.width;
-    const effectiveSettings: CanvasSettings =
-      template.id === 'film'
-        ? {
-            ...settings,
-            overlayPosition: isPortraitImage ? 'top-right' : 'bottom-right',
-          }
-        : settings;
+    let effectiveSettings: CanvasSettings = settings;
+    if (template.id === 'film') {
+      effectiveSettings = {
+        ...settings,
+        overlayPosition: isPortraitImage ? 'top-right' : 'bottom-right',
+      };
+    } else if (isBottomPadding) {
+      effectiveSettings = { ...settings, overlayPosition: 'bottom-left' };
+    }
 
     const dynamicTemplate = this.calculateDynamicPosition(
       template,
       effectiveSettings,
-      settings.width,
-      settings.height,
+      canvasWidth,
+      canvasHeight,
       exifData,
-      { drawX, drawY, drawWidth, drawHeight }
+      { drawX, drawY, drawWidth, drawHeight },
+      scaleFactor
     );
 
     // Draw template overlay with scaling
@@ -110,21 +148,25 @@ export class CanvasRenderer {
       drawY: number;
       drawWidth: number;
       drawHeight: number;
-    }
+    },
+    scaleFactor: number = 1
   ): Template {
     const { overlayPosition } = settings;
 
     // Calculate responsive margin based on canvas size
-    const scaleFactor = Math.min(canvasWidth, canvasHeight) / 1000;
     const baseMargin = 20;
     const margin = Math.max(10, Math.min(40, baseMargin * scaleFactor)); // Clamp between 10-40px
 
     // Calculate scaled template dimensions
-    const scaledWidth = template.position.width * scaleFactor;
+    const isBottomPadding = template.layout === 'bottom-padding';
+    const scaledWidth = isBottomPadding
+      ? canvasWidth
+      : template.position.width * scaleFactor;
     const scaledHeight = this.calculateDynamicTemplateHeight(
       template,
       exifData,
-      scaleFactor
+      scaleFactor,
+      scaledWidth
     );
 
     let x: number, y: number;
@@ -140,38 +182,44 @@ export class CanvasRenderer {
       ? drawRect!.drawY + drawRect!.drawHeight
       : canvasHeight;
 
-    const isFilm = template.id === 'film';
-    const extraInset = isFilm ? margin : 0; // nudge inward for Film
+    if (isBottomPadding) {
+      x = hasDrawRect ? imageLeft : 0;
+      y = hasDrawRect ? imageBottom : Math.max(0, canvasHeight - scaledHeight);
+    } else {
+      const isFilm = template.id === 'film';
+      const extraInset = isFilm ? margin : 0; // nudge inward for Film
 
-    switch (overlayPosition) {
-      case 'top-left':
-        x = (hasDrawRect ? imageLeft : 0) + margin;
-        y = (hasDrawRect ? imageTop : 0) + margin;
-        break;
-      case 'top-right':
-        x =
-          (hasDrawRect ? imageRight : canvasWidth) -
-          scaledWidth -
-          (margin + extraInset);
-        y = (hasDrawRect ? imageTop : 0) + (margin + extraInset);
-        break;
-      case 'bottom-left':
-        x = (hasDrawRect ? imageLeft : 0) + margin;
-        y = (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
-        break;
-      case 'bottom-right':
-        x =
-          (hasDrawRect ? imageRight : canvasWidth) -
-          scaledWidth -
-          (margin + extraInset);
-        y =
-          (hasDrawRect ? imageBottom : canvasHeight) -
-          scaledHeight -
-          (margin + extraInset);
-        break;
-      default:
-        x = template.position.x;
-        y = template.position.y;
+      switch (overlayPosition) {
+        case 'top-left':
+          x = (hasDrawRect ? imageLeft : 0) + margin;
+          y = (hasDrawRect ? imageTop : 0) + margin;
+          break;
+        case 'top-right':
+          x =
+            (hasDrawRect ? imageRight : canvasWidth) -
+            scaledWidth -
+            (margin + extraInset);
+          y = (hasDrawRect ? imageTop : 0) + (margin + extraInset);
+          break;
+        case 'bottom-left':
+          x = (hasDrawRect ? imageLeft : 0) + margin;
+          y =
+            (hasDrawRect ? imageBottom : canvasHeight) - scaledHeight - margin;
+          break;
+        case 'bottom-right':
+          x =
+            (hasDrawRect ? imageRight : canvasWidth) -
+            scaledWidth -
+            (margin + extraInset);
+          y =
+            (hasDrawRect ? imageBottom : canvasHeight) -
+            scaledHeight -
+            (margin + extraInset);
+          break;
+        default:
+          x = template.position.x;
+          y = template.position.y;
+      }
     }
 
     return {
@@ -180,6 +228,9 @@ export class CanvasRenderer {
         ...template.position,
         x,
         y,
+        width: isBottomPadding
+          ? scaledWidth / scaleFactor
+          : template.position.width,
         height: scaledHeight / scaleFactor, // Store the calculated height back to template
       },
     };
@@ -188,7 +239,8 @@ export class CanvasRenderer {
   private static calculateDynamicTemplateHeight(
     template: Template,
     exifData: NormalizedExifData,
-    scaleFactor: number
+    scaleFactor: number,
+    availableWidth?: number
   ): number {
     const scaledFontSize = Math.max(12, template.style.fontSize * scaleFactor);
     const scaledPadding = template.style.padding * scaleFactor;
@@ -210,10 +262,22 @@ export class CanvasRenderer {
       );
     }
 
+    if (template.id === 'caption') {
+      const layout = this.buildCaptionLayout(
+        template,
+        exifData,
+        scaleFactor,
+        availableWidth ?? template.position.width * scaleFactor,
+        tempCtx
+      );
+      return layout.height;
+    }
+
     tempCtx.font = `${scaledFontSize}px ${template.style.fontFamily}`;
 
     // Calculate available width for text
-    const templateWidth = template.position.width * scaleFactor;
+    const templateWidth =
+      availableWidth ?? template.position.width * scaleFactor;
     const maxTextWidth = templateWidth - scaledPadding * 2;
 
     // Count total lines including wrapped text
@@ -270,6 +334,206 @@ export class CanvasRenderer {
     return lines;
   }
 
+  private static getCaptionCameraParts(exifData: NormalizedExifData): {
+    make: string | null;
+    model: string | null;
+  } {
+    let make = exifData.cameraMake;
+    let model = exifData.cameraModel;
+
+    if (make && model) {
+      const lowerMake = make.toLowerCase();
+      const lowerModel = model.toLowerCase();
+      if (lowerModel.startsWith(lowerMake)) {
+        const trimmed = model.slice(make.length).trim();
+        model = trimmed ? trimmed : null;
+      }
+    }
+
+    if (!make && !model && exifData.camera) {
+      const tokens = exifData.camera.trim().split(/\s+/);
+      if (tokens.length > 1) {
+        make = tokens[0];
+        model = tokens.slice(1).join(' ');
+      } else {
+        model = exifData.camera;
+      }
+    }
+
+    return { make: make || null, model: model || null };
+  }
+
+  private static buildCaptionLayout(
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number,
+    availableWidth: number,
+    measureCtx: CanvasRenderingContext2D
+  ): {
+    height: number;
+    padding: number;
+    bodyFontSize: number;
+    bodyLineHeight: number;
+    titleFontSize: number;
+    titleLineHeight: number;
+    columnGap: number;
+    leftColumnWidth: number;
+    rightColumnWidth: number;
+    titleLines: string[];
+    rightBodyLines: string[];
+  } {
+    const padding = template.style.padding * scaleFactor;
+    const bodyFontSize = Math.max(12, template.style.fontSize * scaleFactor);
+    const titleFontSize = Math.max(bodyFontSize * 1.6, bodyFontSize + 6);
+    const titleLineHeight = titleFontSize * 1.15;
+    const bodyLineHeight = bodyFontSize * 1.4;
+    const columnGap = Math.max(12, bodyFontSize * 0.8);
+    const textAreaWidth = Math.max(0, availableWidth - padding * 2);
+
+    const leftColumnWidth = Math.max(0, Math.floor(textAreaWidth * 0.58));
+    const rightColumnWidth = Math.max(
+      0,
+      textAreaWidth - leftColumnWidth - columnGap
+    );
+
+    const { make, model } = this.getCaptionCameraParts(exifData);
+    const titleItems = [make, model].filter(
+      (value): value is string => !!value
+    );
+    if (titleItems.length === 0) {
+      titleItems.push('N/A');
+    }
+
+    const titleLines: string[] = [];
+    const titleWeight = 600;
+    measureCtx.font = `${titleWeight} ${titleFontSize}px ${template.style.fontFamily}`;
+    for (const item of titleItems) {
+      titleLines.push(...this.wrapText(measureCtx, item, leftColumnWidth));
+    }
+
+    const isoValue = exifData.iso
+      ? exifData.iso.replace(/^ISO\s+/i, '').trim()
+      : null;
+    const safeIsoValue = isoValue && isoValue.length > 0 ? isoValue : null;
+
+    const rightItems: Array<{ label: string; value: string | null }> = [
+      { label: 'Lens', value: exifData.lens },
+      { label: 'Focal', value: exifData.focalLength },
+      { label: 'Aperture', value: exifData.aperture },
+      { label: 'Shutter', value: exifData.shutterSpeed },
+      { label: 'ISO', value: safeIsoValue },
+      { label: 'Date', value: exifData.dateTime },
+    ];
+
+    const rightBodyLines: string[] = [];
+    measureCtx.font = `${bodyFontSize}px ${template.style.fontFamily}`;
+    for (const item of rightItems) {
+      const text = `${item.label}: ${item.value ?? 'N/A'}`;
+      rightBodyLines.push(...this.wrapText(measureCtx, text, rightColumnWidth));
+    }
+
+    const titleHeight =
+      titleLines.length > 0
+        ? titleFontSize + (titleLines.length - 1) * titleLineHeight
+        : 0;
+    const rightBodyHeight =
+      rightBodyLines.length > 0
+        ? bodyFontSize + (rightBodyLines.length - 1) * bodyLineHeight
+        : 0;
+
+    const contentHeight = Math.max(titleHeight, rightBodyHeight);
+
+    return {
+      height: padding + contentHeight + padding,
+      padding,
+      bodyFontSize,
+      bodyLineHeight,
+      titleFontSize,
+      titleLineHeight,
+      columnGap,
+      leftColumnWidth,
+      rightColumnWidth,
+      titleLines,
+      rightBodyLines,
+    };
+  }
+
+  private static drawCaptionTemplate(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): void {
+    const { style, position } = template;
+
+    const scaledBorderRadius = style.borderRadius * scaleFactor;
+    const scaledX = position.x;
+    const scaledY = position.y;
+    const scaledWidth = position.width * scaleFactor;
+
+    const layout = this.buildCaptionLayout(
+      template,
+      exifData,
+      scaleFactor,
+      scaledWidth,
+      ctx
+    );
+
+    // Draw background
+    ctx.globalAlpha = style.opacity;
+    ctx.fillStyle = style.backgroundColor;
+    ctx.beginPath();
+    ctx.roundRect(
+      scaledX,
+      scaledY,
+      scaledWidth,
+      layout.height,
+      scaledBorderRadius
+    );
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = style.textColor;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    const leftX = scaledX + layout.padding;
+    const rightX = leftX + layout.leftColumnWidth + layout.columnGap;
+
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    // Title (camera make/model) on left column, vertically centered in the bar
+    const titleBlockHeight =
+      layout.titleLines.length > 0
+        ? layout.titleFontSize +
+          (layout.titleLines.length - 1) * layout.titleLineHeight
+        : 0;
+    const titleTop = scaledY + (layout.height - titleBlockHeight) / 2;
+    let leftY = titleTop + layout.titleFontSize;
+    const titleWeight = 600;
+    ctx.font = `${titleWeight} ${layout.titleFontSize}px ${style.fontFamily}`;
+    for (const line of layout.titleLines) {
+      ctx.fillText(line, leftX, leftY);
+      leftY += layout.titleLineHeight;
+    }
+
+    // Right column body lines
+    if (layout.rightBodyLines.length > 0) {
+      let rightY = scaledY + layout.padding + layout.bodyFontSize;
+      ctx.font = `${layout.bodyFontSize}px ${style.fontFamily}`;
+      for (const line of layout.rightBodyLines) {
+        ctx.fillText(line, rightX, rightY);
+        rightY += layout.bodyLineHeight;
+      }
+    }
+
+    ctx.restore();
+  }
+
   private static drawTemplate(
     ctx: CanvasRenderingContext2D,
     template: Template,
@@ -284,7 +548,14 @@ export class CanvasRenderer {
         | 'bottom-right';
     }
   ): void {
-    const { style, position, fields } = template;
+    const { style, position } = template;
+
+    if (template.id === 'caption') {
+      this.drawCaptionTemplate(ctx, template, exifData, scaleFactor);
+      return;
+    }
+
+    const { fields } = template;
 
     // Scale dimensions (positions are already calculated as absolute values in calculateDynamicPosition)
     const scaledFontSize = Math.max(12, style.fontSize * scaleFactor);
