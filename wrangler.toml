@@ -12,5 +12,5 @@ pattern = "metamark.kiakiraki.dev"
 custom_domain = true
 
 [env.preview]
-name = "metamark"
+name = "metamark-preview"
 workers_dev = true
