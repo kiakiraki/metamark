@@ -1,219 +1,26 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 
-import { useImageStore } from '@/stores/imageStore';
-import { useExifStore } from '@/stores/exifStore';
-import { useTemplateStore } from '@/stores/templateStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { ImageProcessor } from '@/services/imageProcessor';
-import { ExifExtractor } from '@/services/exifExtractor';
-import { CanvasRenderer } from '@/services/canvasRenderer';
+import { useImageUpload } from '@/hooks/useImageUpload';
+import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
 
 export function ImageWorkspace() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isRendering, setIsRendering] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const [containerHeight, setContainerHeight] = useState<number | null>(null);
 
-  const { currentImage, setImage, clearImage } = useImageStore();
-  const setExifData = useExifStore((state) => state.setExifData);
-  const setNormalizedData = useExifStore((state) => state.setNormalizedData);
-  const getNormalizedData = useExifStore((state) => state.getNormalizedData);
-  // Subscribe to normalized data changes directly
-  const normalizedData = useExifStore((state) => state.normalizedData);
-  const { selectedTemplate } = useTemplateStore();
-  const { canvasSettings } = useSettingsStore();
+  const {
+    currentImage,
+    clearImage,
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    isDragReject,
+  } = useImageUpload();
 
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      const file = acceptedFiles[0];
-      if (!file) return;
-
-      const validation = ImageProcessor.validateImageFile(file);
-
-      if (!validation.valid) {
-        console.error('Invalid file:', validation.error);
-        return;
-      }
-
-      try {
-        const imageFile = await ImageProcessor.loadImageFile(file);
-        setImage(imageFile);
-
-        // Extract EXIF data in background
-        Promise.all([ExifExtractor.extractExifData(file)])
-          .then(([exifData]) => {
-            setExifData(imageFile.id, exifData);
-
-            const normalizedData = ExifExtractor.normalizeExifData(exifData);
-            setNormalizedData(imageFile.id, normalizedData);
-          })
-          .catch((error) => {
-            console.error('Error processing EXIF data:', error);
-          });
-      } catch (error) {
-        console.error('Error loading image:', error);
-      }
-    },
-    [setImage, setExifData, setNormalizedData]
-  );
-
-  const { getRootProps, getInputProps, isDragActive, isDragReject } =
-    useDropzone({
-      onDrop,
-      accept: {
-        'image/jpeg': ['.jpg', '.jpeg'],
-        'image/png': ['.png'],
-        'image/heic': ['.heic', '.heif'],
-      },
-      multiple: false,
-      maxSize: 20 * 1024 * 1024, // 20MB
-      noClick: !!currentImage, // Disable click when image is loaded
-    });
-
-  useEffect(() => {
-    renderCanvas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentImage, selectedTemplate, canvasSettings]);
-
-  // Also trigger render when EXIF data becomes available
-  useEffect(() => {
-    if (currentImage) {
-      const exifData = currentImage.id ? normalizedData[currentImage.id] : null;
-      if (exifData) {
-        renderCanvas();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentImage?.id, normalizedData]);
-
-  const updateCanvasDisplaySize = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !currentImage) {
-      setContainerHeight(null);
-      return;
-    }
-
-    const devicePixelRatio =
-      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const logicalWidth = canvas.width / devicePixelRatio;
-    const logicalHeight = canvas.height / devicePixelRatio;
-    const canvasAspectRatio = logicalWidth / logicalHeight;
-
-    // Responsive breakpoints
-    const windowWidth =
-      typeof window !== 'undefined' ? window.innerWidth : 1024;
-    const isMobile = windowWidth < 768;
-    const isTablet = windowWidth < 1024;
-
-    // Dynamic max dimensions based on screen size with margins
-    const horizontalMargin = 40; // 20px on each side
-
-    const maxDisplayWidth = isMobile
-      ? Math.min(300, windowWidth - horizontalMargin)
-      : isTablet
-        ? Math.min(500, windowWidth - horizontalMargin)
-        : Math.min(700, windowWidth - horizontalMargin);
-
-    const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
-
-    let displayWidth, displayHeight;
-
-    if (canvasAspectRatio > maxDisplayWidth / maxDisplayHeight) {
-      // Canvas is wider - fit to max width
-      displayWidth = Math.min(maxDisplayWidth, logicalWidth);
-      displayHeight = displayWidth / canvasAspectRatio;
-    } else {
-      // Canvas is taller - fit to max height
-      displayHeight = Math.min(maxDisplayHeight, logicalHeight);
-      displayWidth = displayHeight * canvasAspectRatio;
-    }
-
-    // Ensure the display size doesn't exceed viewport constraints
-    if (displayWidth > maxDisplayWidth) {
-      displayWidth = maxDisplayWidth;
-      displayHeight = displayWidth / canvasAspectRatio;
-    }
-
-    if (displayHeight > maxDisplayHeight) {
-      displayHeight = maxDisplayHeight;
-      displayWidth = displayHeight * canvasAspectRatio;
-    }
-
-    // Set canvas display size to the responsive display size
-    canvas.style.width = `${displayWidth}px`;
-    canvas.style.height = `${displayHeight}px`;
-
-    // Add padding for controls and info - include top and bottom margins
-    const topMargin = 20; // marginTop from canvas style
-    const bottomMargin = 20; // matching bottom margin
-    const infoBarHeight = 40; // space for info bar at bottom
-    const paddingHeight = topMargin + bottomMargin + infoBarHeight;
-    setContainerHeight(displayHeight + paddingHeight);
-  }, [currentImage]);
-
-  // Recalculate on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      updateCanvasDisplaySize();
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [updateCanvasDisplaySize]);
-
-  const renderCanvas = async () => {
-    if (!currentImage || !selectedTemplate || !canvasRef.current) return;
-
-    setIsRendering(true);
-
-    try {
-      const image = await ImageProcessor.createImageElement(currentImage.url);
-      let exifData = getNormalizedData(currentImage.id);
-
-      const { width, height } = CanvasRenderer.calculateOptimalSize(
-        currentImage.width,
-        currentImage.height
-      );
-
-      // If no EXIF data is available yet, use placeholder data to show template immediately
-      if (!exifData) {
-        exifData = {
-          camera: 'Loading...',
-          cameraMake: 'Loading...',
-          cameraModel: 'Loading...',
-          lens: 'Loading...',
-          focalLength: 'Loading...',
-          aperture: 'Loading...',
-          shutterSpeed: 'Loading...',
-          iso: 'Loading...',
-          dateTime: 'Loading...',
-        };
-      }
-
-      // Always render with template overlay
-      await CanvasRenderer.render({
-        canvas: canvasRef.current,
-        image,
-        template: selectedTemplate,
-        exifData,
-        settings: {
-          ...canvasSettings,
-          width,
-          height,
-        },
-      });
-      updateCanvasDisplaySize();
-    } catch (error) {
-      console.error('Error rendering canvas:', error);
-    } finally {
-      setIsRendering(false);
-    }
-  };
+  const { canvasRef, isRendering, containerHeight } =
+    useCanvasRenderer(currentImage);
 
   const handleClearImage = () => {
     clearImage();
@@ -311,6 +118,8 @@ export function ImageWorkspace() {
 
         <motion.canvas
           ref={canvasRef}
+          role="img"
+          aria-label={`Preview of ${currentImage.name} with EXIF overlay`}
           className="rounded-lg shadow-lg"
           style={{
             imageRendering: 'auto',

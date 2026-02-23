@@ -4,6 +4,8 @@ import { ImageWorkspace } from '@/components/workspace/ImageWorkspace';
 import { TemplateSelector } from '@/components/editor/TemplateSelector';
 import { ExportControls } from '@/components/export/ExportControls';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ToastContainer } from '@/components/ui/Toast';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function Home() {
   return (
@@ -29,7 +31,9 @@ export default function Home() {
           {/* Main Workspace */}
           <div className="lg:col-span-3">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 h-full transition-colors">
-              <ImageWorkspace />
+              <ErrorBoundary>
+                <ImageWorkspace />
+              </ErrorBoundary>
             </div>
           </div>
 
@@ -45,6 +49,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <ToastContainer />
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import type { Template } from '@/types/template';
+import { createStandardFields } from './shared/baseFields';
 
 export const technicalTemplate: Template = {
   id: 'technical',
@@ -20,13 +21,9 @@ export const technicalTemplate: Template = {
     height: 180,
     alignment: 'left',
   },
-  fields: [
-    { key: 'camera', label: 'Camera', visible: true },
-    { key: 'lens', label: 'Lens', visible: true },
-    { key: 'focalLength', label: 'Focal', visible: true },
-    { key: 'aperture', label: 'Aperture', visible: true },
-    { key: 'shutterSpeed', label: 'Shutter', visible: true },
-    { key: 'iso', label: 'ISO', visible: true },
-    { key: 'dateTime', label: 'Captured', visible: true },
-  ],
+  fields: createStandardFields({
+    focalLength: 'Focal',
+    shutterSpeed: 'Shutter',
+    dateTime: 'Captured',
+  }),
 };

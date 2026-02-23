@@ -1,4 +1,5 @@
 import type { Template } from '@/types/template';
+import { createStandardFields } from './shared/baseFields';
 import { besley } from '@/styles/fonts';
 
 export const captionTemplate: Template = {
@@ -22,13 +23,10 @@ export const captionTemplate: Template = {
     height: 180,
     alignment: 'left',
   },
-  fields: [
-    { key: 'camera', label: 'Camera', visible: true },
-    { key: 'lens', label: 'Lens', visible: true },
-    { key: 'focalLength', label: 'Focal Length', visible: true },
-    { key: 'aperture', label: 'Aperture', visible: true },
-    { key: 'shutterSpeed', label: 'Shutter Speed', visible: true },
-    { key: 'iso', label: 'ISO', visible: true },
-    { key: 'dateTime', label: 'Date & Time', visible: true },
+  fontRequirements: [
+    { family: besley.style.fontFamily },
+    { family: besley.style.fontFamily, weights: [600] },
   ],
+  customDraw: 'caption',
+  fields: createStandardFields(),
 };

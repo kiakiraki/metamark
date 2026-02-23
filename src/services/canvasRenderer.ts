@@ -1,6 +1,52 @@
 import type { RenderOptions, CanvasSettings } from '@/types/canvas';
-import type { Template } from '@/types/template';
+import type { Template, PositionPreset } from '@/types/template';
 import type { NormalizedExifData } from '@/types/exif';
+
+// Cached measurement canvas/context to avoid repeated DOM element creation
+let measureCanvas: HTMLCanvasElement | null = null;
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (measureCtx) return measureCtx;
+  if (typeof document === 'undefined') return null;
+  measureCanvas = document.createElement('canvas');
+  measureCtx = measureCanvas.getContext('2d');
+  return measureCtx;
+}
+
+// Font load promise cache to avoid redundant document.fonts.load() calls
+const fontLoadCache = new Map<string, Promise<FontFace[]>>();
+
+function loadFontCached(spec: string): Promise<FontFace[]> {
+  const cached = fontLoadCache.get(spec);
+  if (cached) return cached;
+  const fonts = typeof document !== 'undefined' ? document.fonts : null;
+  if (!fonts?.load) return Promise.resolve([]);
+  const promise = fonts.load(spec);
+  fontLoadCache.set(spec, promise);
+  return promise;
+}
+
+// Caption layout cache: avoids re-computing buildCaptionLayout multiple times
+// within a single render cycle (height calc + position calc + draw).
+interface CaptionLayout {
+  height: number;
+  padding: number;
+  bodyFontSize: number;
+  bodyLineHeight: number;
+  titleFontSize: number;
+  titleLineHeight: number;
+  columnGap: number;
+  leftColumnWidth: number;
+  rightColumnWidth: number;
+  titleLines: string[];
+  rightBodyLines: string[];
+}
+
+let captionLayoutCache: {
+  key: string;
+  layout: CaptionLayout;
+} | null = null;
 
 export class CanvasRenderer {
   static async render(options: RenderOptions): Promise<string> {
@@ -70,45 +116,39 @@ export class CanvasRenderer {
     // Draw image with preserved aspect ratio
     ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 
-    // Ensure Film font is loaded before drawing overlay
-    if (template.id === 'film') {
+    // Load required fonts declared by the template
+    if (template.fontRequirements?.length) {
       try {
-        const fontSize = Math.max(12, template.style.fontSize * scaleFactor);
-        // Attempt to load DotGothic16; ignore if not supported
-        const fonts = typeof document !== 'undefined' ? document.fonts : null;
-        if (fonts?.load) {
-          await fonts.load(`${fontSize}px DotGothic16`);
-        }
-      } catch {
-        // noop
-      }
-    } else if (template.id === 'caption') {
-      try {
-        const bodyFontSize = Math.max(
+        const baseFontSize = Math.max(
           12,
           template.style.fontSize * scaleFactor
         );
-        const titleFontSize = Math.max(bodyFontSize * 1.6, bodyFontSize + 6);
-        const fonts = typeof document !== 'undefined' ? document.fonts : null;
-        if (fonts?.load) {
-          await Promise.all([
-            fonts.load(`${bodyFontSize}px ${template.style.fontFamily}`),
-            fonts.load(`600 ${titleFontSize}px ${template.style.fontFamily}`),
-          ]);
-        }
+        const promises = template.fontRequirements.map((req) => {
+          const weights = req.weights ?? [400];
+          return Promise.all(
+            weights.map((w) => {
+              const fontSize =
+                w > 400
+                  ? Math.max(baseFontSize * 1.6, baseFontSize + 6)
+                  : baseFontSize;
+              const prefix = w !== 400 ? `${w} ` : '';
+              return loadFontCached(`${prefix}${fontSize}px ${req.family}`);
+            })
+          );
+        });
+        await Promise.all(promises);
       } catch {
         // noop
       }
     }
 
     // Calculate dynamic position based on overlay position setting and exif data
-    // For Film style, fix overlay position: landscape -> bottom-right, portrait -> top-right
     const isPortraitImage = image.height > image.width;
     let effectiveSettings: CanvasSettings = settings;
-    if (template.id === 'film') {
+    if (template.positionOverride) {
       effectiveSettings = {
         ...settings,
-        overlayPosition: isPortraitImage ? 'top-right' : 'bottom-right',
+        overlayPosition: template.positionOverride(isPortraitImage),
       };
     } else if (isBottomPadding) {
       effectiveSettings = { ...settings, overlayPosition: 'bottom-left' };
@@ -186,8 +226,7 @@ export class CanvasRenderer {
       x = hasDrawRect ? imageLeft : 0;
       y = hasDrawRect ? imageBottom : Math.max(0, canvasHeight - scaledHeight);
     } else {
-      const isFilm = template.id === 'film';
-      const extraInset = isFilm ? margin : 0; // nudge inward for Film
+      const extraInset = template.textShadow ? margin : 0; // nudge inward for overlay-only templates
 
       switch (overlayPosition) {
         case 'top-left':
@@ -246,9 +285,8 @@ export class CanvasRenderer {
     const scaledPadding = template.style.padding * scaleFactor;
     const lineHeight = scaledFontSize * 1.4;
 
-    // Create a temporary canvas to measure text and calculate wrapping
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
+    // Use cached measurement canvas to avoid repeated DOM element creation
+    const tempCtx = getMeasureContext();
 
     if (!tempCtx) {
       // Fallback: count visible fields without wrapping
@@ -262,7 +300,7 @@ export class CanvasRenderer {
       );
     }
 
-    if (template.id === 'caption') {
+    if (template.customDraw === 'caption') {
       const layout = this.buildCaptionLayout(
         template,
         exifData,
@@ -368,20 +406,19 @@ export class CanvasRenderer {
     exifData: NormalizedExifData,
     scaleFactor: number,
     availableWidth: number,
-    measureCtx: CanvasRenderingContext2D
-  ): {
-    height: number;
-    padding: number;
-    bodyFontSize: number;
-    bodyLineHeight: number;
-    titleFontSize: number;
-    titleLineHeight: number;
-    columnGap: number;
-    leftColumnWidth: number;
-    rightColumnWidth: number;
-    titleLines: string[];
-    rightBodyLines: string[];
-  } {
+    ctx: CanvasRenderingContext2D
+  ): CaptionLayout {
+    // Check cache: same template id + scaleFactor + availableWidth + exif keys
+    const cacheKey = JSON.stringify([
+      template.id,
+      scaleFactor,
+      availableWidth,
+      exifData,
+    ]);
+    if (captionLayoutCache?.key === cacheKey) {
+      return captionLayoutCache.layout;
+    }
+    const measureCtx = ctx;
     const padding = template.style.padding * scaleFactor;
     const bodyFontSize = Math.max(12, template.style.fontSize * scaleFactor);
     const titleFontSize = Math.max(bodyFontSize * 1.6, bodyFontSize + 6);
@@ -443,7 +480,7 @@ export class CanvasRenderer {
 
     const contentHeight = Math.max(titleHeight, rightBodyHeight);
 
-    return {
+    const layout: CaptionLayout = {
       height: padding + contentHeight + padding,
       padding,
       bodyFontSize,
@@ -456,6 +493,8 @@ export class CanvasRenderer {
       titleLines,
       rightBodyLines,
     };
+    captionLayoutCache = { key: cacheKey, layout };
+    return layout;
   }
 
   private static drawCaptionTemplate(
@@ -541,16 +580,12 @@ export class CanvasRenderer {
     scaleFactor: number = 1,
     options?: {
       imageIsPortrait?: boolean;
-      overlayPosition?:
-        | 'top-left'
-        | 'top-right'
-        | 'bottom-left'
-        | 'bottom-right';
+      overlayPosition?: PositionPreset;
     }
   ): void {
     const { style, position } = template;
 
-    if (template.id === 'caption') {
+    if (template.customDraw === 'caption') {
       this.drawCaptionTemplate(ctx, template, exifData, scaleFactor);
       return;
     }
@@ -619,8 +654,8 @@ export class CanvasRenderer {
     ctx.globalAlpha = 1;
     ctx.fillStyle = style.textColor;
 
-    // Improve readability for film-style (no background) with a soft glow
-    if (template.id === 'film') {
+    // Apply text shadow for readability when template requests it
+    if (template.textShadow) {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
       ctx.shadowBlur = 6 * Math.max(1, scaleFactor);
       ctx.shadowOffsetX = 0;
@@ -633,7 +668,7 @@ export class CanvasRenderer {
     }
 
     const shouldRotate =
-      template.id === 'film' && options?.imageIsPortrait === true;
+      template.rotateForPortrait === true && options?.imageIsPortrait === true;
 
     if (shouldRotate && options?.overlayPosition?.includes('right')) {
       // Rotate 90 degrees at the right edge for portrait images

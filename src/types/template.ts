@@ -24,6 +24,11 @@ export type PositionPreset =
   | 'bottom-left'
   | 'bottom-right';
 
+export interface FontRequirement {
+  family: string;
+  weights?: number[];
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -32,6 +37,11 @@ export interface Template {
   style: TemplateStyle;
   position: TemplatePosition;
   fields: TemplateField[];
+  fontRequirements?: FontRequirement[];
+  positionOverride?: (isPortrait: boolean) => PositionPreset;
+  textShadow?: boolean;
+  rotateForPortrait?: boolean;
+  customDraw?: 'caption';
 }
 
 export interface TemplateField {
