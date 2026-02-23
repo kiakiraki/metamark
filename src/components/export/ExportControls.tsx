@@ -9,9 +9,11 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import { ImageProcessor } from '@/services/imageProcessor';
 import clsx from 'clsx';
+import { useToast } from '@/hooks/useToast';
 
 export function ExportControls() {
   const [isExporting, setIsExporting] = useState(false);
+  const toast = useToast();
 
   const selectedImage = useSelectedImage();
   const getNormalizedData = useExifStore((state) => state.getNormalizedData);
@@ -61,9 +63,9 @@ export function ExportControls() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      toast.error('Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -107,7 +109,11 @@ export function ExportControls() {
             Quality
           </h4>
           <div className="space-y-2">
+            <label htmlFor="quality-slider" className="sr-only">
+              JPEG Quality
+            </label>
             <input
+              id="quality-slider"
               type="range"
               min={0.1}
               max={1}
@@ -129,6 +135,15 @@ export function ExportControls() {
       <motion.button
         onClick={handleExport}
         disabled={!canExport || isExporting}
+        title={
+          !selectedImage
+            ? 'Select an image first'
+            : !selectedTemplate
+              ? 'Choose a template first'
+              : isExporting
+                ? 'Exporting...'
+                : 'Download image with overlay'
+        }
         className={clsx(
           'w-full py-3 px-4 rounded-lg font-medium text-center transition-colors',
           {

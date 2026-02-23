@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ImageFile, ProcessedImage } from '@/types/image';
 import { ImageProcessor } from '@/services/imageProcessor';
+import { useExifStore } from '@/stores/exifStore';
 
 interface ImageState {
   currentImage: ProcessedImage | null;
@@ -27,11 +28,14 @@ export const useImageStore = create<ImageState>((set, get) => ({
 
   clearImage: () => {
     const currentImage = get().currentImage;
-    if (currentImage?.url) {
-      ImageProcessor.cleanupImageUrl(currentImage.url);
-    }
-    if (currentImage?.processedUrl) {
-      ImageProcessor.cleanupImageUrl(currentImage.processedUrl);
+    if (currentImage) {
+      if (currentImage.url) {
+        ImageProcessor.cleanupImageUrl(currentImage.url);
+      }
+      if (currentImage.processedUrl) {
+        ImageProcessor.cleanupImageUrl(currentImage.processedUrl);
+      }
+      useExifStore.getState().clearExifData(currentImage.id);
     }
     set({ currentImage: null });
   },

@@ -1,4 +1,5 @@
 import type { Template } from '@/types/template';
+import { createStandardFields } from './shared/baseFields';
 
 export const minimalTemplate: Template = {
   id: 'minimal',
@@ -17,44 +18,12 @@ export const minimalTemplate: Template = {
     x: 20,
     y: 20,
     width: 300,
-    height: 180, // Increased height to accommodate all 7 fields including date
+    height: 180,
     alignment: 'left',
   },
-  fields: [
-    {
-      key: 'camera',
-      label: 'Camera',
-      visible: true,
-    },
-    {
-      key: 'lens',
-      label: 'Lens',
-      visible: true,
-    },
-    {
-      key: 'focalLength',
-      label: 'Focal Length',
-      visible: true,
-    },
-    {
-      key: 'aperture',
-      label: 'Aperture',
-      visible: true,
-    },
-    {
-      key: 'shutterSpeed',
-      label: 'Shutter',
-      visible: true,
-    },
-    {
-      key: 'iso',
-      label: 'ISO',
-      visible: true,
-    },
-    {
-      key: 'dateTime',
-      label: 'Date',
-      visible: true,
-    },
-  ],
+  fields: createStandardFields({
+    focalLength: 'Focal Length',
+    shutterSpeed: 'Shutter',
+    dateTime: 'Date',
+  }),
 };

@@ -48,6 +48,10 @@ export const filmTemplate: Template = {
     height: 40,
     alignment: 'left',
   },
+  fontRequirements: [{ family: 'DotGothic16' }],
+  positionOverride: (isPortrait) => (isPortrait ? 'top-right' : 'bottom-right'),
+  textShadow: true,
+  rotateForPortrait: true,
   fields: [
     {
       key: 'dateTime',

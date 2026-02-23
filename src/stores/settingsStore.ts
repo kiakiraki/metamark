@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { CanvasSettings } from '@/types/canvas';
 
 interface SettingsState {
@@ -16,13 +17,21 @@ const defaultCanvasSettings: CanvasSettings = {
   overlayPosition: 'top-left',
 };
 
-export const useSettingsStore = create<SettingsState>((set) => ({
-  canvasSettings: defaultCanvasSettings,
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      canvasSettings: defaultCanvasSettings,
 
-  updateCanvasSettings: (settingsUpdate) =>
-    set((state) => ({
-      canvasSettings: { ...state.canvasSettings, ...settingsUpdate },
-    })),
+      updateCanvasSettings: (settingsUpdate) =>
+        set((state) => ({
+          canvasSettings: { ...state.canvasSettings, ...settingsUpdate },
+        })),
 
-  resetToDefaults: () => set({ canvasSettings: defaultCanvasSettings }),
-}));
+      resetToDefaults: () => set({ canvasSettings: defaultCanvasSettings }),
+    }),
+    {
+      name: 'metamark-settings',
+      partialize: (state) => ({ canvasSettings: state.canvasSettings }),
+    }
+  )
+);

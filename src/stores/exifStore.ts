@@ -8,6 +8,7 @@ interface ExifState {
   setNormalizedData: (imageId: string, data: NormalizedExifData) => void;
   getExifData: (imageId: string) => ExifData | null;
   getNormalizedData: (imageId: string) => NormalizedExifData | null;
+  clearExifData: (imageId: string) => void;
 }
 
 export const useExifStore = create<ExifState>((set, get) => ({
@@ -27,4 +28,13 @@ export const useExifStore = create<ExifState>((set, get) => ({
   getExifData: (imageId) => get().exifData[imageId] || null,
 
   getNormalizedData: (imageId) => get().normalizedData[imageId] || null,
+
+  clearExifData: (imageId) =>
+    set((state) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [imageId]: _exif, ...restExif } = state.exifData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [imageId]: _norm, ...restNorm } = state.normalizedData;
+      return { exifData: restExif, normalizedData: restNorm };
+    }),
 }));
