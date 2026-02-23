@@ -1,6 +1,9 @@
 version: 2
+
+registries: {}
+
 updates:
-  # npm dependencies with PR grouping and security updates
+  # npm dependencies
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
@@ -9,48 +12,75 @@ updates:
       time: '09:00'
       timezone: 'Asia/Tokyo'
     open-pull-requests-limit: 15
-    # Group related dependencies to reduce PR noise
     groups:
-      # Development dependencies
-      development-dependencies:
+      # Next.js / React — version coupling が強いのでまとめる
+      next-react:
         patterns:
-          - '@types/*'
-          - 'eslint*'
-          - 'prettier'
-          - 'typescript'
-          - '@eslint/*'
-        update-types:
-          - 'minor'
-          - 'patch'
-      # React/Next.js ecosystem
-      react-ecosystem:
-        patterns:
-          - 'react'
-          - 'react-dom'
-          - 'react-*'
           - 'next'
           - '@next/*'
+          - 'react'
+          - 'react-dom'
           - 'eslint-config-next'
         update-types:
           - 'minor'
           - 'patch'
-      # UI libraries
-      ui-libraries:
+      # Linting & Formatting
+      linting:
         patterns:
-          - '@radix-ui/*'
-          - 'framer-motion'
+          - 'eslint'
+          - '@eslint/*'
+          - 'eslint-config-prettier'
+          - 'prettier'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # TypeScript & type definitions
+      types:
+        patterns:
+          - 'typescript'
+          - '@types/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # Styling — Tailwind CSS ecosystem
+      styling:
+        patterns:
           - 'tailwindcss'
           - '@tailwindcss/*'
         update-types:
           - 'minor'
           - 'patch'
-      # Utility libraries
+      # UI component libraries
+      ui-components:
+        patterns:
+          - '@radix-ui/*'
+          - 'framer-motion'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # Testing infrastructure
+      testing:
+        patterns:
+          - 'vitest'
+          - '@testing-library/*'
+          - 'jsdom'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # Application utilities
       utilities:
         patterns:
           - 'clsx'
           - 'exifr'
           - 'react-dropzone'
           - 'zustand'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # Build tooling
+      build-tools:
+        patterns:
+          - 'baseline-browser-mapping'
         update-types:
           - 'minor'
           - 'patch'
@@ -62,7 +92,7 @@ updates:
       - 'dependencies'
       - 'automated'
 
-  # GitHub Actions dependencies
+  # GitHub Actions
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
@@ -71,11 +101,9 @@ updates:
       time: '09:00'
       timezone: 'Asia/Tokyo'
     open-pull-requests-limit: 5
-    # Group GitHub Actions updates
     groups:
       github-actions:
         patterns:
-          - 'actions/*'
           - '*'
         update-types:
           - 'major'
