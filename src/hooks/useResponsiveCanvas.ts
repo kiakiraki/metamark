@@ -1,6 +1,26 @@
 import { useState, useCallback, useEffect, type RefObject } from 'react';
 import type { ProcessedImage } from '@/types/image';
 
+export function getDisplayBounds(): {
+  maxDisplayWidth: number;
+  maxDisplayHeight: number;
+} {
+  const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth < 1024;
+  const horizontalMargin = 40;
+
+  const maxDisplayWidth = isMobile
+    ? Math.min(300, windowWidth - horizontalMargin)
+    : isTablet
+      ? Math.min(500, windowWidth - horizontalMargin)
+      : Math.min(700, windowWidth - horizontalMargin);
+
+  const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
+
+  return { maxDisplayWidth, maxDisplayHeight };
+}
+
 export function useResponsiveCanvas(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   currentImage: ProcessedImage | null
@@ -20,20 +40,7 @@ export function useResponsiveCanvas(
     const logicalHeight = canvas.height / devicePixelRatio;
     const canvasAspectRatio = logicalWidth / logicalHeight;
 
-    const windowWidth =
-      typeof window !== 'undefined' ? window.innerWidth : 1024;
-    const isMobile = windowWidth < 768;
-    const isTablet = windowWidth < 1024;
-
-    const horizontalMargin = 40;
-
-    const maxDisplayWidth = isMobile
-      ? Math.min(300, windowWidth - horizontalMargin)
-      : isTablet
-        ? Math.min(500, windowWidth - horizontalMargin)
-        : Math.min(700, windowWidth - horizontalMargin);
-
-    const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
+    const { maxDisplayWidth, maxDisplayHeight } = getDisplayBounds();
 
     let displayWidth, displayHeight;
 

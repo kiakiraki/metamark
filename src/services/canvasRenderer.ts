@@ -83,6 +83,10 @@ export class CanvasRenderer {
     // Scale the context to ensure correct drawing operations
     ctx.scale(devicePixelRatio, devicePixelRatio);
 
+    // Use high-quality interpolation when the browser scales the source image
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -113,8 +117,24 @@ export class CanvasRenderer {
       }
     }
 
-    // Draw image with preserved aspect ratio
-    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    // Draw image with preserved aspect ratio. For very large source images
+    // we step the source down by halves first — repeated bilinear passes
+    // approximate Lanczos and avoid the moire/aliasing a single big drawImage
+    // produces when the destination is much smaller than the source.
+    const targetPixelWidth = Math.max(
+      1,
+      Math.round(drawWidth * devicePixelRatio)
+    );
+    const targetPixelHeight = Math.max(
+      1,
+      Math.round(drawHeight * devicePixelRatio)
+    );
+    const drawableSource = this.stepDownSource(
+      image,
+      targetPixelWidth,
+      targetPixelHeight
+    );
+    ctx.drawImage(drawableSource, drawX, drawY, drawWidth, drawHeight);
 
     // Load required fonts declared by the template
     if (template.fontRequirements?.length) {
@@ -735,6 +755,82 @@ export class CanvasRenderer {
         settings.quality
       );
     });
+  }
+
+  // Used by the preview hook to size its render canvas to the display
+  // before rendering. For bottom-padding templates the final canvas is
+  // taller than the image; without this we'd guess the wrong aspect ratio.
+  static estimateBottomPaddingHeight(
+    template: Template,
+    exifData: NormalizedExifData,
+    baseWidth: number,
+    baseHeight: number
+  ): number {
+    if (template.layout !== 'bottom-padding') return 0;
+    const scaleFactor = Math.min(baseWidth, baseHeight) / 1000;
+    return this.calculateDynamicTemplateHeight(
+      template,
+      exifData,
+      scaleFactor,
+      baseWidth
+    );
+  }
+
+  // Half-step (pyramid) downsample: keep halving the source onto an
+  // offscreen canvas until it is within 2x of the target. The browser's
+  // single-shot drawImage degrades sharply when the source is many times
+  // larger than the destination; iterative bilinear passes are visually
+  // close to Lanczos at a fraction of the cost.
+  private static stepDownSource(
+    source: HTMLImageElement,
+    targetPixelWidth: number,
+    targetPixelHeight: number
+  ): HTMLImageElement | HTMLCanvasElement {
+    if (typeof document === 'undefined') return source;
+
+    const sourceWidth = source.naturalWidth || source.width;
+    const sourceHeight = source.naturalHeight || source.height;
+    if (!sourceWidth || !sourceHeight) return source;
+
+    if (
+      sourceWidth <= targetPixelWidth * 2 &&
+      sourceHeight <= targetPixelHeight * 2
+    ) {
+      return source;
+    }
+
+    let current: HTMLImageElement | HTMLCanvasElement = source;
+    let currentWidth = sourceWidth;
+    let currentHeight = sourceHeight;
+
+    while (
+      currentWidth > targetPixelWidth * 2 &&
+      currentHeight > targetPixelHeight * 2
+    ) {
+      const nextWidth = Math.max(
+        targetPixelWidth,
+        Math.floor(currentWidth / 2)
+      );
+      const nextHeight = Math.max(
+        targetPixelHeight,
+        Math.floor(currentHeight / 2)
+      );
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = nextWidth;
+      offCanvas.height = nextHeight;
+      const offCtx = offCanvas.getContext('2d');
+      if (!offCtx) return current;
+      offCtx.imageSmoothingEnabled = true;
+      offCtx.imageSmoothingQuality = 'high';
+      offCtx.drawImage(current, 0, 0, nextWidth, nextHeight);
+
+      current = offCanvas;
+      currentWidth = nextWidth;
+      currentHeight = nextHeight;
+    }
+
+    return current;
   }
 
   static calculateOptimalSize(
