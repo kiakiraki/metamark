@@ -484,11 +484,7 @@ export class CanvasRenderer {
       (value): value is string => !!value
     );
     const titleText =
-      titlePieces.length > 0
-        ? titlePieces.join('  ')
-        : makeText
-          ? null
-          : 'N/A';
+      titlePieces.length > 0 ? titlePieces.join('  ') : makeText ? null : 'N/A';
     const titleWeight = 600;
     measureCtx.font = `${titleWeight} ${titleFontSize}px ${template.style.fontFamily}`;
     const titleLines = titleText
