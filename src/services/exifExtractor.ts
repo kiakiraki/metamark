@@ -1,5 +1,6 @@
 import exifr from 'exifr';
 import type { ExifData, NormalizedExifData } from '@/types/exif';
+import { formatSonyModel } from './cameraNameFormatter';
 
 function calculateShutterSpeed(exposureTime?: number): string | undefined {
   if (!exposureTime) return undefined;
@@ -153,10 +154,16 @@ export async function extractExifData(file: File): Promise<ExifData> {
 }
 
 export function normalizeExifData(exifData: ExifData): NormalizedExifData {
+  const rawMake = exifData.camera?.make;
+  const friendlyModel = formatSonyModel(rawMake, exifData.camera?.model);
+
   return {
-    camera: formatCamera(exifData.camera),
-    cameraMake: formatStringField(exifData.camera?.make),
-    cameraModel: formatStringField(exifData.camera?.model),
+    camera: formatCamera({
+      make: rawMake,
+      model: friendlyModel ?? undefined,
+    }),
+    cameraMake: formatStringField(rawMake),
+    cameraModel: formatStringField(friendlyModel ?? undefined),
     lens: formatLens(exifData.lens),
     focalLength: formatFocalLength(exifData.lens?.focalLength),
     iso: formatISO(exifData.settings?.iso),

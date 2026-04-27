@@ -13,7 +13,7 @@ export const captionTemplate: Template = {
     textColor: '#ffffff',
     backgroundColor: '#000000',
     opacity: 1,
-    padding: 18,
+    padding: 28,
     borderRadius: 0,
   },
   position: {
