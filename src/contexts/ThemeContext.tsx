@@ -17,41 +17,55 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const isTheme = (value: unknown): value is Theme =>
+  value === 'light' || value === 'dark' || value === 'system';
+
 const themeStore = (() => {
   let currentTheme: Theme = 'system';
+  let initialized = false;
   const listeners = new Set<() => void>();
 
+  const notify = () => {
+    listeners.forEach((listener) => listener());
+  };
+
+  const ensureInitialized = () => {
+    if (initialized || typeof window === 'undefined') return;
+    initialized = true;
+    const saved = window.localStorage.getItem('theme');
+    if (isTheme(saved)) currentTheme = saved;
+    window.addEventListener('storage', (event) => {
+      if (event.key !== 'theme') return;
+      if (isTheme(event.newValue) && event.newValue !== currentTheme) {
+        currentTheme = event.newValue;
+        notify();
+      }
+    });
+  };
+
   const getSnapshot = (): Theme => {
-    if (typeof window === 'undefined') return currentTheme;
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    return savedTheme ?? currentTheme;
+    ensureInitialized();
+    return currentTheme;
   };
 
   const getServerSnapshot = (): Theme => 'system';
 
   const subscribe = (listener: () => void) => {
+    ensureInitialized();
     listeners.add(listener);
-    if (typeof window === 'undefined') {
-      return () => listeners.delete(listener);
-    }
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'theme') {
-        listener();
-      }
-    };
-    window.addEventListener('storage', handleStorage);
     return () => {
       listeners.delete(listener);
-      window.removeEventListener('storage', handleStorage);
     };
   };
 
   const setTheme = (next: Theme) => {
+    ensureInitialized();
+    if (currentTheme === next) return;
     currentTheme = next;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', next);
+      window.localStorage.setItem('theme', next);
     }
-    listeners.forEach((listener) => listener());
+    notify();
   };
 
   return { getSnapshot, getServerSnapshot, subscribe, setTheme };

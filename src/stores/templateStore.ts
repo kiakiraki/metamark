@@ -28,6 +28,3 @@ export const useTemplateStore = create<TemplateState>((set) => ({
         : null,
     })),
 }));
-
-// Set default template
-useTemplateStore.getState().selectTemplate('minimal');

@@ -8,7 +8,8 @@ import { PositionSelector } from './PositionSelector';
 import clsx from 'clsx';
 
 export function TemplateSelector() {
-  const { selectedTemplate, selectTemplate } = useTemplateStore();
+  const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
+  const selectTemplate = useTemplateStore((state) => state.selectTemplate);
 
   const templatePresets: {
     key: TemplatePreset;

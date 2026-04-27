@@ -17,8 +17,11 @@ export function ExportControls() {
 
   const selectedImage = useSelectedImage();
   const getNormalizedData = useExifStore((state) => state.getNormalizedData);
-  const { selectedTemplate } = useTemplateStore();
-  const { canvasSettings, updateCanvasSettings } = useSettingsStore();
+  const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
+  const canvasSettings = useSettingsStore((state) => state.canvasSettings);
+  const updateCanvasSettings = useSettingsStore(
+    (state) => state.updateCanvasSettings
+  );
 
   const handleExport = async () => {
     if (!selectedImage || !selectedTemplate) return;

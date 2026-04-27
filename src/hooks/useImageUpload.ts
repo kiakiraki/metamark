@@ -7,7 +7,9 @@ import { extractExifData, normalizeExifData } from '@/services/exifExtractor';
 import { useToast } from '@/hooks/useToast';
 
 export function useImageUpload() {
-  const { currentImage, setImage, clearImage } = useImageStore();
+  const currentImage = useImageStore((state) => state.currentImage);
+  const setImage = useImageStore((state) => state.setImage);
+  const clearImage = useImageStore((state) => state.clearImage);
   const setExifData = useExifStore((state) => state.setExifData);
   const setNormalizedData = useExifStore((state) => state.setNormalizedData);
   const toast = useToast();

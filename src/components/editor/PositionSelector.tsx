@@ -14,8 +14,12 @@ const POSITION_OPTIONS: { key: PositionPreset; label: string; icon: string }[] =
   ];
 
 export function PositionSelector() {
-  const { canvasSettings, updateCanvasSettings } = useSettingsStore();
-  const currentPosition = canvasSettings.overlayPosition;
+  const currentPosition = useSettingsStore(
+    (state) => state.canvasSettings.overlayPosition
+  );
+  const updateCanvasSettings = useSettingsStore(
+    (state) => state.updateCanvasSettings
+  );
 
   const handlePositionChange = (position: PositionPreset) => {
     updateCanvasSettings({ overlayPosition: position });
