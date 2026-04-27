@@ -9,7 +9,6 @@ export class ImageProcessor {
       img.onload = () => {
         const imageFile: ImageFile = {
           id: crypto.randomUUID(),
-          file,
           url,
           name: file.name,
           size: file.size,
