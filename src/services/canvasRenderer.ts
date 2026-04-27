@@ -34,13 +34,25 @@ interface CaptionLayout {
   padding: number;
   bodyFontSize: number;
   bodyLineHeight: number;
+  paramsFontSize: number;
+  paramsLineHeight: number;
   titleFontSize: number;
   titleLineHeight: number;
+  makeFontSize: number;
+  makeLineHeight: number;
+  makeLetterSpacing: string;
+  metaFontSize: number;
+  metaLineHeight: number;
   columnGap: number;
   leftColumnWidth: number;
   rightColumnWidth: number;
+  contentHeight: number;
+  makeToTitleGap: number;
+  rightRowGap: number;
+  makeText: string | null;
   titleLines: string[];
-  rightBodyLines: string[];
+  paramsLines: string[];
+  dateLines: string[];
 }
 
 let captionLayoutCache: {
@@ -441,77 +453,129 @@ export class CanvasRenderer {
     const measureCtx = ctx;
     const padding = template.style.padding * scaleFactor;
     const bodyFontSize = Math.max(12, template.style.fontSize * scaleFactor);
-    const titleFontSize = Math.max(bodyFontSize * 1.6, bodyFontSize + 6);
+    const titleFontSize = Math.max(bodyFontSize * 1.7, bodyFontSize + 8);
     const titleLineHeight = titleFontSize * 1.15;
     const bodyLineHeight = bodyFontSize * 1.4;
-    const columnGap = Math.max(12, bodyFontSize * 0.8);
+    const paramsFontSize = Math.max(13, bodyFontSize * 1.15);
+    const paramsLineHeight = paramsFontSize * 1.4;
+    const makeFontSize = Math.max(12, bodyFontSize * 1.05);
+    const makeLineHeight = makeFontSize * 1.2;
+    const makeLetterSpacing = '0.18em';
+    const metaFontSize = Math.max(11, bodyFontSize * 0.85);
+    const metaLineHeight = metaFontSize * 1.3;
+    const columnGap = Math.max(16, bodyFontSize * 1.25);
+    const makeToTitleGap = makeFontSize * 0.55;
+    const rightRowGap = bodyFontSize * 0.45;
     const textAreaWidth = Math.max(0, availableWidth - padding * 2);
 
-    const leftColumnWidth = Math.max(0, Math.floor(textAreaWidth * 0.58));
+    const leftColumnWidth = Math.max(
+      0,
+      Math.floor((textAreaWidth - columnGap) * 0.62)
+    );
     const rightColumnWidth = Math.max(
       0,
       textAreaWidth - leftColumnWidth - columnGap
     );
 
     const { make, model } = this.getCaptionCameraParts(exifData);
-    const titleItems = [make, model].filter(
+    const makeText = make ? make.toUpperCase() : null;
+
+    const titlePieces = [model, exifData.lens].filter(
       (value): value is string => !!value
     );
-    if (titleItems.length === 0) {
-      titleItems.push('N/A');
-    }
-
-    const titleLines: string[] = [];
+    const titleText =
+      titlePieces.length > 0 ? titlePieces.join('  ') : makeText ? null : 'N/A';
     const titleWeight = 600;
     measureCtx.font = `${titleWeight} ${titleFontSize}px ${template.style.fontFamily}`;
-    for (const item of titleItems) {
-      titleLines.push(...this.wrapText(measureCtx, item, leftColumnWidth));
-    }
+    const titleLines = titleText
+      ? this.wrapText(measureCtx, titleText, leftColumnWidth)
+      : [];
 
-    const isoValue = exifData.iso
-      ? exifData.iso.replace(/^ISO\s+/i, '').trim()
+    const apertureText = exifData.aperture
+      ? exifData.aperture.replace(/^f\//i, 'ƒ/')
       : null;
-    const safeIsoValue = isoValue && isoValue.length > 0 ? isoValue : null;
+    const paramsParts = [
+      exifData.focalLength,
+      apertureText,
+      exifData.shutterSpeed,
+      exifData.iso,
+    ].filter((value): value is string => !!value);
+    const paramsText =
+      paramsParts.length > 0 ? paramsParts.join('  ·  ') : null;
 
-    const rightItems: Array<{ label: string; value: string | null }> = [
-      { label: 'Lens', value: exifData.lens },
-      { label: 'Focal', value: exifData.focalLength },
-      { label: 'Aperture', value: exifData.aperture },
-      { label: 'Shutter', value: exifData.shutterSpeed },
-      { label: 'ISO', value: safeIsoValue },
-      { label: 'Date', value: exifData.dateTime },
-    ];
+    measureCtx.font = `${paramsFontSize}px ${template.style.fontFamily}`;
+    const paramsLines = paramsText
+      ? this.wrapText(measureCtx, paramsText, rightColumnWidth)
+      : [];
 
-    const rightBodyLines: string[] = [];
-    measureCtx.font = `${bodyFontSize}px ${template.style.fontFamily}`;
-    for (const item of rightItems) {
-      const text = `${item.label}: ${item.value ?? 'N/A'}`;
-      rightBodyLines.push(...this.wrapText(measureCtx, text, rightColumnWidth));
-    }
+    const dateText = exifData.dateTime
+      ? exifData.dateTime.replace(/\//g, '.')
+      : null;
+    measureCtx.font = `${metaFontSize}px ${template.style.fontFamily}`;
+    const dateLines = dateText
+      ? this.wrapText(measureCtx, dateText, rightColumnWidth)
+      : [];
 
-    const titleHeight =
-      titleLines.length > 0
-        ? titleFontSize + (titleLines.length - 1) * titleLineHeight
-        : 0;
-    const rightBodyHeight =
-      rightBodyLines.length > 0
-        ? bodyFontSize + (rightBodyLines.length - 1) * bodyLineHeight
-        : 0;
+    const blockHeight = (
+      lines: string[],
+      fontSize: number,
+      lineHeight: number
+    ) => (lines.length === 0 ? 0 : fontSize + (lines.length - 1) * lineHeight);
 
-    const contentHeight = Math.max(titleHeight, rightBodyHeight);
+    const makeBlockHeight = makeText ? makeFontSize : 0;
+    const titleBlockHeight = blockHeight(
+      titleLines,
+      titleFontSize,
+      titleLineHeight
+    );
+    const leftHeight =
+      makeBlockHeight +
+      (makeBlockHeight && titleBlockHeight ? makeToTitleGap : 0) +
+      titleBlockHeight;
+
+    const paramsBlockHeight = blockHeight(
+      paramsLines,
+      paramsFontSize,
+      paramsLineHeight
+    );
+    const dateBlockHeight = blockHeight(
+      dateLines,
+      metaFontSize,
+      metaLineHeight
+    );
+    const rightBlocks = [paramsBlockHeight, dateBlockHeight].filter(
+      (h) => h > 0
+    );
+    const rightHeight =
+      rightBlocks.reduce((sum, h) => sum + h, 0) +
+      Math.max(0, rightBlocks.length - 1) * rightRowGap;
+
+    const contentHeight = Math.max(leftHeight, rightHeight);
 
     const layout: CaptionLayout = {
       height: padding + contentHeight + padding,
       padding,
       bodyFontSize,
       bodyLineHeight,
+      paramsFontSize,
+      paramsLineHeight,
       titleFontSize,
       titleLineHeight,
+      makeFontSize,
+      makeLineHeight,
+      makeLetterSpacing,
+      metaFontSize,
+      metaLineHeight,
       columnGap,
       leftColumnWidth,
       rightColumnWidth,
+      contentHeight,
+      makeToTitleGap,
+      rightRowGap,
+      makeText,
       titleLines,
-      rightBodyLines,
+      paramsLines,
+      dateLines,
     };
     captionLayoutCache = { key: cacheKey, layout };
     return layout;
@@ -559,34 +623,115 @@ export class CanvasRenderer {
     ctx.shadowOffsetY = 0;
 
     const leftX = scaledX + layout.padding;
-    const rightX = leftX + layout.leftColumnWidth + layout.columnGap;
+    const rightEdgeX = scaledX + scaledWidth - layout.padding;
+    const dividerX =
+      leftX + layout.leftColumnWidth + Math.round(layout.columnGap / 2);
+    const contentTop = scaledY + (layout.height - layout.contentHeight) / 2;
 
     ctx.save();
-    ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
 
-    // Title (camera make/model) on left column, vertically centered in the bar
+    // Hairline divider between columns
+    if (layout.contentHeight > 0) {
+      const lineWidth = Math.max(1, Math.round(scaleFactor));
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.fillRect(
+        Math.round(dividerX - lineWidth / 2),
+        contentTop,
+        lineWidth,
+        layout.contentHeight
+      );
+      ctx.restore();
+    }
+
+    // Left column: small-caps make + bold model, vertically centered
+    const makeBlockHeight = layout.makeText ? layout.makeFontSize : 0;
     const titleBlockHeight =
       layout.titleLines.length > 0
         ? layout.titleFontSize +
           (layout.titleLines.length - 1) * layout.titleLineHeight
         : 0;
-    const titleTop = scaledY + (layout.height - titleBlockHeight) / 2;
-    let leftY = titleTop + layout.titleFontSize;
-    const titleWeight = 600;
-    ctx.font = `${titleWeight} ${layout.titleFontSize}px ${style.fontFamily}`;
-    for (const line of layout.titleLines) {
-      ctx.fillText(line, leftX, leftY);
-      leftY += layout.titleLineHeight;
+    const leftBlockHeight =
+      makeBlockHeight +
+      (makeBlockHeight && titleBlockHeight ? layout.makeToTitleGap : 0) +
+      titleBlockHeight;
+    let leftY = contentTop + (layout.contentHeight - leftBlockHeight) / 2;
+
+    if (layout.makeText) {
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.font = `${layout.makeFontSize}px ${style.fontFamily}`;
+      ctx.letterSpacing = layout.makeLetterSpacing;
+      ctx.fillText(layout.makeText, leftX, leftY + layout.makeFontSize);
+      ctx.restore();
+      leftY += layout.makeFontSize + layout.makeToTitleGap;
     }
 
-    // Right column body lines
-    if (layout.rightBodyLines.length > 0) {
-      let rightY = scaledY + layout.padding + layout.bodyFontSize;
-      ctx.font = `${layout.bodyFontSize}px ${style.fontFamily}`;
-      for (const line of layout.rightBodyLines) {
-        ctx.fillText(line, rightX, rightY);
-        rightY += layout.bodyLineHeight;
+    if (layout.titleLines.length > 0) {
+      ctx.save();
+      ctx.textAlign = 'left';
+      const titleWeight = 600;
+      ctx.font = `${titleWeight} ${layout.titleFontSize}px ${style.fontFamily}`;
+      let cursorY = leftY + layout.titleFontSize;
+      for (const line of layout.titleLines) {
+        ctx.fillText(line, leftX, cursorY);
+        cursorY += layout.titleLineHeight;
+      }
+      ctx.restore();
+    }
+
+    // Right column: params / date, right-aligned, vertically centered
+    const rightBlocks: Array<{ height: number; draw: (top: number) => void }> =
+      [];
+
+    if (layout.paramsLines.length > 0) {
+      rightBlocks.push({
+        height:
+          layout.paramsFontSize +
+          (layout.paramsLines.length - 1) * layout.paramsLineHeight,
+        draw: (top) => {
+          ctx.save();
+          ctx.textAlign = 'right';
+          ctx.font = `${layout.paramsFontSize}px ${style.fontFamily}`;
+          let cursorY = top + layout.paramsFontSize;
+          for (const line of layout.paramsLines) {
+            ctx.fillText(line, rightEdgeX, cursorY);
+            cursorY += layout.paramsLineHeight;
+          }
+          ctx.restore();
+        },
+      });
+    }
+
+    if (layout.dateLines.length > 0) {
+      rightBlocks.push({
+        height:
+          layout.metaFontSize +
+          (layout.dateLines.length - 1) * layout.metaLineHeight,
+        draw: (top) => {
+          ctx.save();
+          ctx.textAlign = 'right';
+          ctx.globalAlpha = 0.6;
+          ctx.font = `${layout.metaFontSize}px ${style.fontFamily}`;
+          let cursorY = top + layout.metaFontSize;
+          for (const line of layout.dateLines) {
+            ctx.fillText(line, rightEdgeX, cursorY);
+            cursorY += layout.metaLineHeight;
+          }
+          ctx.restore();
+        },
+      });
+    }
+
+    if (rightBlocks.length > 0) {
+      const totalRightHeight =
+        rightBlocks.reduce((sum, b) => sum + b.height, 0) +
+        (rightBlocks.length - 1) * layout.rightRowGap;
+      let rightTop = contentTop + (layout.contentHeight - totalRightHeight) / 2;
+      for (const block of rightBlocks) {
+        block.draw(rightTop);
+        rightTop += block.height + layout.rightRowGap;
       }
     }
 

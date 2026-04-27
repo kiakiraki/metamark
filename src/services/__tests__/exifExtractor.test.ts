@@ -13,14 +13,33 @@ describe('normalizeExifData', () => {
 
     const result = normalizeExifData(exifData);
 
-    expect(result.camera).toBe('Sony ILCE-7M4');
+    expect(result.camera).toBe('Sony α7 IV');
     expect(result.cameraMake).toBe('Sony');
-    expect(result.cameraModel).toBe('ILCE-7M4');
+    expect(result.cameraModel).toBe('α7 IV');
     expect(result.lens).toBe('Sony FE 24-70mm F2.8 GM');
     expect(result.focalLength).toBe('50mm');
     expect(result.iso).toBe('ISO 100');
     expect(result.aperture).toBe('f/2.8');
     expect(result.shutterSpeed).toBe('1/250s');
+  });
+
+  it('passes through non-Sony model names', () => {
+    const exifData: ExifData = {
+      camera: { make: 'Canon', model: 'EOS R5' },
+    };
+
+    const result = normalizeExifData(exifData);
+    expect(result.camera).toBe('Canon EOS R5');
+    expect(result.cameraModel).toBe('EOS R5');
+  });
+
+  it('leaves unsupported Sony families untouched', () => {
+    const exifData: ExifData = {
+      camera: { make: 'SONY', model: 'NEX-7' },
+    };
+
+    const result = normalizeExifData(exifData);
+    expect(result.cameraModel).toBe('NEX-7');
   });
 
   it('returns null for missing fields', () => {
