@@ -121,7 +121,10 @@ export class CanvasRenderer {
     // we step the source down by halves first — repeated bilinear passes
     // approximate Lanczos and avoid the moire/aliasing a single big drawImage
     // produces when the destination is much smaller than the source.
-    const targetPixelWidth = Math.max(1, Math.round(drawWidth * devicePixelRatio));
+    const targetPixelWidth = Math.max(
+      1,
+      Math.round(drawWidth * devicePixelRatio)
+    );
     const targetPixelHeight = Math.max(
       1,
       Math.round(drawHeight * devicePixelRatio)
@@ -804,7 +807,10 @@ export class CanvasRenderer {
       currentWidth > targetPixelWidth * 2 &&
       currentHeight > targetPixelHeight * 2
     ) {
-      const nextWidth = Math.max(targetPixelWidth, Math.floor(currentWidth / 2));
+      const nextWidth = Math.max(
+        targetPixelWidth,
+        Math.floor(currentWidth / 2)
+      );
       const nextHeight = Math.max(
         targetPixelHeight,
         Math.floor(currentHeight / 2)
