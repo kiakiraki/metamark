@@ -60,6 +60,75 @@ let captionLayoutCache: {
   layout: CaptionLayout;
 } | null = null;
 
+type TechnicalIconKind =
+  | 'lens'
+  | 'focal'
+  | 'aperture'
+  | 'shutter'
+  | 'iso'
+  | 'date';
+
+interface TechnicalRow {
+  kind: TechnicalIconKind;
+  label: string;
+  value: string;
+}
+
+interface TechnicalLayout {
+  padding: number;
+  borderRadius: number;
+  makeText: string | null;
+  modelText: string | null;
+  makeFontSize: number;
+  modelFontSize: number;
+  makeToModelGap: number;
+  headerToDividerGap: number;
+  dividerThickness: number;
+  dividerToRowsGap: number;
+  rows: TechnicalRow[];
+  rowGap: number;
+  rowHeight: number;
+  iconRadius: number;
+  iconStrokeWidth: number;
+  iconToTextGap: number;
+  rowLabelFontSize: number;
+  rowValueFontSize: number;
+  rowLabelToValueGap: number;
+  rowLabelOpacity: number;
+}
+
+let technicalLayoutCache: {
+  key: string;
+  layout: TechnicalLayout;
+} | null = null;
+
+type CompactIconKind = 'camera' | 'lens-aperture';
+
+interface CompactLayout {
+  panelHeight: number;
+  padding: number;
+  borderRadius: number;
+  cellWidth: number;
+  columnGap: number;
+  rowGap: number;
+  rowHeight: number;
+  labelFontSize: number;
+  valueFontSize: number;
+  labelToValueGap: number;
+  iconSize: number;
+  iconStrokeWidth: number;
+  iconToLabelGap: number;
+  cameraValue: string;
+  lensValue: string;
+  settingsValue: string;
+  dateValue: string;
+}
+
+let compactLayoutCache: {
+  key: string;
+  layout: CompactLayout;
+} | null = null;
+
 export class CanvasRenderer {
   static async render(options: RenderOptions): Promise<string> {
     const { canvas, image, template, exifData, settings } = options;
@@ -231,15 +300,23 @@ export class CanvasRenderer {
 
     // Calculate scaled template dimensions
     const isBottomPadding = template.layout === 'bottom-padding';
+    const isTechnical = template.customDraw === 'technical';
     const scaledWidth = isBottomPadding
       ? canvasWidth
       : template.position.width * scaleFactor;
-    const scaledHeight = this.calculateDynamicTemplateHeight(
-      template,
-      exifData,
-      scaleFactor,
-      scaledWidth
-    );
+    let scaledHeight: number;
+    if (isTechnical) {
+      // Technical panel fills the image vertically with symmetric margins
+      const imageAreaHeight = drawRect ? drawRect.drawHeight : canvasHeight;
+      scaledHeight = Math.max(0, imageAreaHeight - margin * 2);
+    } else {
+      scaledHeight = this.calculateDynamicTemplateHeight(
+        template,
+        exifData,
+        scaleFactor,
+        scaledWidth
+      );
+    }
 
     let x: number, y: number;
 
@@ -341,6 +418,11 @@ export class CanvasRenderer {
         tempCtx
       );
       return layout.height;
+    }
+
+    if (template.customDraw === 'compact') {
+      const layout = this.buildCompactLayout(template, exifData, scaleFactor);
+      return layout.panelHeight;
     }
 
     tempCtx.font = `${scaledFontSize}px ${template.style.fontFamily}`;
@@ -738,6 +820,781 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
+  private static buildTechnicalLayout(
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): TechnicalLayout {
+    const cacheKey = JSON.stringify(['technical', scaleFactor, exifData]);
+    if (technicalLayoutCache?.key === cacheKey) {
+      return technicalLayoutCache.layout;
+    }
+
+    const padding = template.style.padding * scaleFactor;
+    const borderRadius = template.style.borderRadius * scaleFactor;
+    const baseFontSize = Math.max(11, template.style.fontSize * scaleFactor);
+
+    const makeFontSize = Math.max(11, baseFontSize * 0.85);
+    const modelFontSize = Math.max(20, baseFontSize * 1.95);
+    const makeToModelGap = makeFontSize * 0.55;
+    const headerToDividerGap = baseFontSize * 1.4;
+    const dividerThickness = Math.max(1, scaleFactor);
+    const dividerToRowsGap = baseFontSize * 1.3;
+
+    const iconRadius = Math.max(14, baseFontSize * 1.55);
+    const iconStrokeWidth = Math.max(1, scaleFactor * 1.1);
+    const iconToTextGap = Math.max(10, baseFontSize * 0.95);
+    const rowLabelFontSize = Math.max(9, baseFontSize * 0.72);
+    const rowValueFontSize = Math.max(13, baseFontSize * 1.05);
+    const rowLabelToValueGap = rowValueFontSize * 0.18;
+    const rowLabelOpacity = 0.65;
+    const rowMinHeight = iconRadius * 2 + 4;
+    const rowTextHeight =
+      rowLabelFontSize + rowLabelToValueGap + rowValueFontSize;
+    const rowHeight = Math.max(rowMinHeight, rowTextHeight);
+    const rowGap = baseFontSize * 1.3;
+
+    const { make, model } = this.getCaptionCameraParts(exifData);
+    const makeText = make ? make.toUpperCase() : null;
+    const modelText = model ?? null;
+
+    const rows: TechnicalRow[] = [];
+    if (exifData.lens) {
+      rows.push({ kind: 'lens', label: 'Lens', value: exifData.lens });
+    }
+    if (exifData.focalLength) {
+      rows.push({
+        kind: 'focal',
+        label: 'Focal',
+        value: exifData.focalLength,
+      });
+    }
+    if (exifData.aperture) {
+      rows.push({
+        kind: 'aperture',
+        label: 'Aperture',
+        value: exifData.aperture.replace(/^f\//i, 'ƒ/'),
+      });
+    }
+    if (exifData.shutterSpeed) {
+      rows.push({
+        kind: 'shutter',
+        label: 'Shutter',
+        value: exifData.shutterSpeed,
+      });
+    }
+    if (exifData.iso) {
+      rows.push({ kind: 'iso', label: 'ISO', value: exifData.iso });
+    }
+    if (exifData.dateTime) {
+      rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
+    }
+
+    const layout: TechnicalLayout = {
+      padding,
+      borderRadius,
+      makeText,
+      modelText,
+      makeFontSize,
+      modelFontSize,
+      makeToModelGap,
+      headerToDividerGap,
+      dividerThickness,
+      dividerToRowsGap,
+      rows,
+      rowGap,
+      rowHeight,
+      iconRadius,
+      iconStrokeWidth,
+      iconToTextGap,
+      rowLabelFontSize,
+      rowValueFontSize,
+      rowLabelToValueGap,
+      rowLabelOpacity,
+    };
+    technicalLayoutCache = { key: cacheKey, layout };
+    return layout;
+  }
+
+  private static drawFrostedPanel(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radius: number,
+    scaleFactor: number,
+    backgroundColor: string
+  ): void {
+    const dpr =
+      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const canCreateOffscreen =
+      typeof document !== 'undefined' && w > 0 && h > 0;
+
+    let blurredFilled = false;
+    if (canCreateOffscreen) {
+      const off = document.createElement('canvas');
+      off.width = Math.max(1, Math.ceil(w * dpr));
+      off.height = Math.max(1, Math.ceil(h * dpr));
+      const offCtx = off.getContext('2d');
+      if (offCtx) {
+        offCtx.scale(dpr, dpr);
+        offCtx.imageSmoothingEnabled = true;
+        offCtx.imageSmoothingQuality = 'high';
+        const blurAmount = Math.max(8, 22 * scaleFactor);
+        offCtx.filter = `blur(${blurAmount}px)`;
+        // Sample the already-drawn image region behind the panel
+        offCtx.drawImage(
+          ctx.canvas,
+          x * dpr,
+          y * dpr,
+          w * dpr,
+          h * dpr,
+          0,
+          0,
+          w,
+          h
+        );
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, radius);
+        ctx.clip();
+        ctx.drawImage(off, x, y, w, h);
+        // Glass tint on top of blurred backdrop
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(x, y, w, h);
+        ctx.restore();
+        blurredFilled = true;
+      }
+    }
+
+    if (!blurredFilled) {
+      // Fallback when blur unavailable: solid translucent panel
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, radius);
+      ctx.fillStyle = backgroundColor;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Hairline border for crisp edge
+    ctx.save();
+    ctx.beginPath();
+    const inset = Math.max(0.5, scaleFactor * 0.5);
+    ctx.roundRect(
+      x + inset,
+      y + inset,
+      Math.max(0, w - inset * 2),
+      Math.max(0, h - inset * 2),
+      Math.max(0, radius - inset)
+    );
+    ctx.lineWidth = Math.max(1, scaleFactor);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private static drawTechnicalIcon(
+    ctx: CanvasRenderingContext2D,
+    kind: TechnicalIconKind,
+    cx: number,
+    cy: number,
+    r: number,
+    lineWidth: number,
+    fontFamily: string
+  ): void {
+    ctx.save();
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Outer ring shared by all icons
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    switch (kind) {
+      case 'lens': {
+        // Front lens element: nested rings + center dot
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.65, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, r * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 'focal': {
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, r * 0.16), 0, Math.PI * 2);
+        ctx.fill();
+        for (let i = 0; i < 4; i++) {
+          const angle = (Math.PI / 2) * i;
+          ctx.beginPath();
+          ctx.moveTo(
+            cx + Math.cos(angle) * r * 0.5,
+            cy + Math.sin(angle) * r * 0.5
+          );
+          ctx.lineTo(
+            cx + Math.cos(angle) * r * 0.72,
+            cy + Math.sin(angle) * r * 0.72
+          );
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'aperture': {
+        const blades = 6;
+        const innerR = r * 0.62;
+        ctx.beginPath();
+        for (let i = 0; i < blades; i++) {
+          const a = (Math.PI * 2 * i) / blades - Math.PI / 2;
+          const x = cx + Math.cos(a) * innerR;
+          const y = cy + Math.sin(a) * innerR;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        for (let i = 0; i < blades; i++) {
+          const a = (Math.PI * 2 * i) / blades - Math.PI / 2 + Math.PI / blades;
+          ctx.beginPath();
+          ctx.moveTo(
+            cx + Math.cos(a) * innerR * 0.05,
+            cy + Math.sin(a) * innerR * 0.05
+          );
+          ctx.lineTo(cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'shutter': {
+        // Hand at ~10 o'clock
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(
+          cx + Math.cos(-Math.PI * 0.7) * r * 0.55,
+          cy + Math.sin(-Math.PI * 0.7) * r * 0.55
+        );
+        ctx.stroke();
+        // Top tick mark
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r);
+        ctx.lineTo(cx, cy - r * 0.72);
+        ctx.stroke();
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, r * 0.08), 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 'iso': {
+        const fontSize = Math.max(8, Math.round(r * 0.6));
+        ctx.font = `${fontSize}px ${fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('ISO', cx, cy + r * 0.04);
+        break;
+      }
+      case 'date': {
+        const w = r * 1.25;
+        const h = r * 1.15;
+        const x = cx - w / 2;
+        const y = cy - h / 2 + r * 0.08;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r * 0.15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + r * 0.08, y + h * 0.32);
+        ctx.lineTo(x + w - r * 0.08, y + h * 0.32);
+        ctx.stroke();
+        const tabH = r * 0.22;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.28, y - tabH * 0.8);
+        ctx.lineTo(x + w * 0.28, y + tabH * 0.4);
+        ctx.moveTo(x + w * 0.72, y - tabH * 0.8);
+        ctx.lineTo(x + w * 0.72, y + tabH * 0.4);
+        ctx.stroke();
+        break;
+      }
+    }
+
+    ctx.restore();
+  }
+
+  private static fillTextEllipsis(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number
+  ): void {
+    if (maxWidth <= 0) return;
+    if (ctx.measureText(text).width <= maxWidth) {
+      ctx.fillText(text, x, y);
+      return;
+    }
+    const ellipsis = '…';
+    let truncated = text;
+    while (
+      truncated.length > 0 &&
+      ctx.measureText(truncated + ellipsis).width > maxWidth
+    ) {
+      truncated = truncated.slice(0, -1);
+    }
+    ctx.fillText(truncated + ellipsis, x, y);
+  }
+
+  private static drawTechnicalTemplate(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): void {
+    const { style, position } = template;
+    const panelX = position.x;
+    const panelY = position.y;
+    const panelW = position.width * scaleFactor;
+    const panelH = position.height * scaleFactor;
+
+    const layout = this.buildTechnicalLayout(template, exifData, scaleFactor);
+
+    this.drawFrostedPanel(
+      ctx,
+      panelX,
+      panelY,
+      panelW,
+      panelH,
+      layout.borderRadius,
+      scaleFactor,
+      style.backgroundColor
+    );
+
+    const headerHeight =
+      (layout.makeText ? layout.makeFontSize : 0) +
+      (layout.makeText && layout.modelText ? layout.makeToModelGap : 0) +
+      (layout.modelText ? layout.modelFontSize : 0);
+
+    const rowsTotalHeight =
+      layout.rows.length > 0
+        ? layout.rowHeight * layout.rows.length +
+          layout.rowGap * (layout.rows.length - 1)
+        : 0;
+
+    const dividerSpace =
+      headerHeight && rowsTotalHeight
+        ? layout.headerToDividerGap +
+          layout.dividerThickness +
+          layout.dividerToRowsGap
+        : 0;
+
+    const contentHeight = headerHeight + dividerSpace + rowsTotalHeight;
+
+    const innerLeft = panelX + layout.padding;
+    const innerTop = panelY + layout.padding;
+    const innerBottom = panelY + panelH - layout.padding;
+    const innerHeight = Math.max(0, innerBottom - innerTop);
+    let cursorY = innerTop + Math.max(0, (innerHeight - contentHeight) / 2);
+
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+
+    // Header: make (small caps tracked) + model (large)
+    if (layout.makeText) {
+      ctx.save();
+      ctx.font = `${layout.makeFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = 0.85;
+      ctx.letterSpacing = '0.16em';
+      ctx.fillText(layout.makeText, innerLeft, cursorY + layout.makeFontSize);
+      ctx.restore();
+      cursorY +=
+        layout.makeFontSize + (layout.modelText ? layout.makeToModelGap : 0);
+    }
+
+    if (layout.modelText) {
+      ctx.save();
+      ctx.font = `500 ${layout.modelFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = 1;
+      this.fillTextEllipsis(
+        ctx,
+        layout.modelText,
+        innerLeft,
+        cursorY + layout.modelFontSize,
+        panelW - layout.padding * 2
+      );
+      ctx.restore();
+      cursorY += layout.modelFontSize;
+    }
+
+    // Divider
+    if (headerHeight && rowsTotalHeight) {
+      cursorY += layout.headerToDividerGap;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillRect(
+        innerLeft,
+        cursorY,
+        Math.max(0, panelW - layout.padding * 2),
+        layout.dividerThickness
+      );
+      ctx.restore();
+      cursorY += layout.dividerThickness + layout.dividerToRowsGap;
+    }
+
+    // Rows
+    const valueMaxWidth = Math.max(
+      0,
+      panelW - layout.padding * 2 - layout.iconRadius * 2 - layout.iconToTextGap
+    );
+
+    for (let i = 0; i < layout.rows.length; i++) {
+      const row = layout.rows[i];
+      const rowTop = cursorY;
+      const iconCx = innerLeft + layout.iconRadius;
+      const iconCy = rowTop + layout.rowHeight / 2;
+
+      this.drawTechnicalIcon(
+        ctx,
+        row.kind,
+        iconCx,
+        iconCy,
+        layout.iconRadius,
+        layout.iconStrokeWidth,
+        style.fontFamily
+      );
+
+      const textX = innerLeft + layout.iconRadius * 2 + layout.iconToTextGap;
+      const textBlockHeight =
+        layout.rowLabelFontSize +
+        layout.rowLabelToValueGap +
+        layout.rowValueFontSize;
+      const textTop = rowTop + (layout.rowHeight - textBlockHeight) / 2;
+
+      ctx.save();
+      ctx.font = `${layout.rowLabelFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = layout.rowLabelOpacity;
+      ctx.fillText(row.label, textX, textTop + layout.rowLabelFontSize);
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = `500 ${layout.rowValueFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = 1;
+      const valueY =
+        textTop +
+        layout.rowLabelFontSize +
+        layout.rowLabelToValueGap +
+        layout.rowValueFontSize;
+      this.fillTextEllipsis(ctx, row.value, textX, valueY, valueMaxWidth);
+      ctx.restore();
+
+      cursorY += layout.rowHeight;
+      if (i < layout.rows.length - 1) cursorY += layout.rowGap;
+    }
+
+    ctx.restore();
+  }
+
+  private static buildCompactLayout(
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): CompactLayout {
+    const cacheKey = JSON.stringify([
+      'compact',
+      scaleFactor,
+      exifData,
+      template.position.width,
+    ]);
+    if (compactLayoutCache?.key === cacheKey) {
+      return compactLayoutCache.layout;
+    }
+
+    const padding = template.style.padding * scaleFactor;
+    const borderRadius = template.style.borderRadius * scaleFactor;
+    const baseFontSize = Math.max(11, template.style.fontSize * scaleFactor);
+
+    const labelFontSize = Math.max(9, baseFontSize * 0.78);
+    const valueFontSize = Math.max(12, baseFontSize * 1.05);
+    const labelToValueGap = valueFontSize * 0.45;
+    const iconSize = Math.max(11, labelFontSize * 1.25);
+    const iconStrokeWidth = Math.max(1, scaleFactor);
+    const iconToLabelGap = labelFontSize * 0.55;
+    const columnGap = baseFontSize * 1.7;
+    const rowGap = baseFontSize * 1.4;
+
+    const rowHeight = labelFontSize + labelToValueGap + valueFontSize;
+    const panelW = template.position.width * scaleFactor;
+    const innerWidth = Math.max(0, panelW - padding * 2);
+    const cellWidth = Math.max(0, (innerWidth - columnGap) / 2);
+    const panelHeight = padding * 2 + rowHeight * 2 + rowGap;
+
+    const cameraValue = exifData.camera ?? '—';
+    const lensValue = exifData.lens ?? '—';
+
+    const settingsParts: string[] = [];
+    if (exifData.focalLength) settingsParts.push(exifData.focalLength);
+    if (exifData.aperture) {
+      settingsParts.push(exifData.aperture.replace(/^f\//i, 'f'));
+    }
+    if (exifData.shutterSpeed) settingsParts.push(exifData.shutterSpeed);
+    if (exifData.iso) {
+      // Normalize "ISO 100" -> "ISO100" for the compact one-liner
+      settingsParts.push(exifData.iso.replace(/^ISO\s+/i, 'ISO'));
+    }
+    const settingsValue = settingsParts.length
+      ? settingsParts.join(' / ')
+      : '—';
+
+    const dateValue = exifData.dateTime ?? '—';
+
+    const layout: CompactLayout = {
+      panelHeight,
+      padding,
+      borderRadius,
+      cellWidth,
+      columnGap,
+      rowGap,
+      rowHeight,
+      labelFontSize,
+      valueFontSize,
+      labelToValueGap,
+      iconSize,
+      iconStrokeWidth,
+      iconToLabelGap,
+      cameraValue,
+      lensValue,
+      settingsValue,
+      dateValue,
+    };
+    compactLayoutCache = { key: cacheKey, layout };
+    return layout;
+  }
+
+  private static drawCompactIcon(
+    ctx: CanvasRenderingContext2D,
+    kind: CompactIconKind,
+    cx: number,
+    cy: number,
+    size: number,
+    lineWidth: number
+  ): void {
+    ctx.save();
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    switch (kind) {
+      case 'camera': {
+        const w = size * 1.15;
+        const h = size * 0.78;
+        const x = cx - w / 2;
+        const y = cy - h / 2 + size * 0.04;
+        // Body
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, size * 0.12);
+        ctx.stroke();
+        // Top viewfinder bump
+        const bumpW = w * 0.32;
+        const bumpH = size * 0.13;
+        const bumpX = x + (w - bumpW) / 2;
+        ctx.beginPath();
+        ctx.moveTo(bumpX, y);
+        ctx.lineTo(bumpX, y - bumpH);
+        ctx.lineTo(bumpX + bumpW, y - bumpH);
+        ctx.lineTo(bumpX + bumpW, y);
+        ctx.stroke();
+        // Lens circle
+        ctx.beginPath();
+        ctx.arc(cx, cy + size * 0.09, size * 0.22, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+      case 'lens-aperture': {
+        const r = size * 0.5;
+        const blades = 6;
+        ctx.beginPath();
+        for (let i = 0; i < blades; i++) {
+          const a = (Math.PI * 2 * i) / blades - Math.PI / 2;
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        for (let i = 0; i < blades; i++) {
+          const a = (Math.PI * 2 * i) / blades - Math.PI / 2 + Math.PI / blades;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+          ctx.stroke();
+        }
+        break;
+      }
+    }
+
+    ctx.restore();
+  }
+
+  private static drawCompactCell(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    label: string,
+    value: string,
+    iconKind: CompactIconKind | null,
+    layout: CompactLayout,
+    fontFamily: string
+  ): void {
+    let labelStartX = x;
+    if (iconKind) {
+      const iconCx = x + layout.iconSize / 2;
+      const iconCy = y + layout.labelFontSize * 0.55;
+      this.drawCompactIcon(
+        ctx,
+        iconKind,
+        iconCx,
+        iconCy,
+        layout.iconSize,
+        layout.iconStrokeWidth
+      );
+      labelStartX = x + layout.iconSize + layout.iconToLabelGap;
+    }
+
+    // Label (small caps style with letter spacing, dim)
+    ctx.save();
+    ctx.font = `${layout.labelFontSize}px ${fontFamily}`;
+    ctx.globalAlpha = 0.55;
+    ctx.letterSpacing = '0.16em';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#ffffff';
+    const labelMaxWidth = Math.max(0, x + width - labelStartX);
+    this.fillTextEllipsis(
+      ctx,
+      label,
+      labelStartX,
+      y + layout.labelFontSize,
+      labelMaxWidth
+    );
+    ctx.restore();
+
+    // Value (medium weight, full white)
+    ctx.save();
+    ctx.font = `500 ${layout.valueFontSize}px ${fontFamily}`;
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#ffffff';
+    const valueY =
+      y + layout.labelFontSize + layout.labelToValueGap + layout.valueFontSize;
+    this.fillTextEllipsis(ctx, value, x, valueY, width);
+    ctx.restore();
+  }
+
+  private static drawCompactTemplate(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): void {
+    const { style, position } = template;
+    const panelX = position.x;
+    const panelY = position.y;
+    const panelW = position.width * scaleFactor;
+    const panelH = position.height * scaleFactor;
+
+    const layout = this.buildCompactLayout(template, exifData, scaleFactor);
+
+    this.drawFrostedPanel(
+      ctx,
+      panelX,
+      panelY,
+      panelW,
+      panelH,
+      layout.borderRadius,
+      scaleFactor,
+      style.backgroundColor
+    );
+
+    const innerLeft = panelX + layout.padding;
+    const innerTop = panelY + layout.padding;
+    const col1X = innerLeft;
+    const col2X = innerLeft + layout.cellWidth + layout.columnGap;
+    const row1Y = innerTop;
+    const row2Y = innerTop + layout.rowHeight + layout.rowGap;
+
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = '#ffffff';
+
+    this.drawCompactCell(
+      ctx,
+      col1X,
+      row1Y,
+      layout.cellWidth,
+      'CAMERA',
+      layout.cameraValue,
+      'camera',
+      layout,
+      style.fontFamily
+    );
+    this.drawCompactCell(
+      ctx,
+      col2X,
+      row1Y,
+      layout.cellWidth,
+      'LENS',
+      layout.lensValue,
+      'lens-aperture',
+      layout,
+      style.fontFamily
+    );
+    this.drawCompactCell(
+      ctx,
+      col1X,
+      row2Y,
+      layout.cellWidth,
+      'SETTINGS',
+      layout.settingsValue,
+      null,
+      layout,
+      style.fontFamily
+    );
+    this.drawCompactCell(
+      ctx,
+      col2X,
+      row2Y,
+      layout.cellWidth,
+      'DATE',
+      layout.dateValue,
+      null,
+      layout,
+      style.fontFamily
+    );
+
+    ctx.restore();
+  }
+
   private static drawTemplate(
     ctx: CanvasRenderingContext2D,
     template: Template,
@@ -752,6 +1609,16 @@ export class CanvasRenderer {
 
     if (template.customDraw === 'caption') {
       this.drawCaptionTemplate(ctx, template, exifData, scaleFactor);
+      return;
+    }
+
+    if (template.customDraw === 'technical') {
+      this.drawTechnicalTemplate(ctx, template, exifData, scaleFactor);
+      return;
+    }
+
+    if (template.customDraw === 'compact') {
+      this.drawCompactTemplate(ctx, template, exifData, scaleFactor);
       return;
     }
 
