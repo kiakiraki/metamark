@@ -3,14 +3,16 @@ import { minimalTemplate } from './minimal';
 import { classicTemplate } from './classic';
 import { filmTemplate } from './film';
 import { technicalTemplate } from './technical';
+import { compactTemplate } from './compact';
 import { captionTemplate } from './caption';
 
-// Only include available templates. Missing presets (e.g., 'technical') are treated as not available.
+// Only include available templates. Missing presets are treated as not available.
 export const templates: Partial<Record<TemplatePreset, Template>> = {
   minimal: minimalTemplate,
   classic: classicTemplate,
   film: filmTemplate,
   technical: technicalTemplate,
+  compact: compactTemplate,
   caption: captionTemplate,
 };
 
@@ -19,5 +21,6 @@ export {
   classicTemplate,
   filmTemplate,
   technicalTemplate,
+  compactTemplate,
   captionTemplate,
 };

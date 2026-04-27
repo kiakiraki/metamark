@@ -41,7 +41,7 @@ export interface Template {
   positionOverride?: (isPortrait: boolean) => PositionPreset;
   textShadow?: boolean;
   rotateForPortrait?: boolean;
-  customDraw?: 'caption';
+  customDraw?: 'caption' | 'technical' | 'compact';
 }
 
 export interface TemplateField {
@@ -56,4 +56,5 @@ export type TemplatePreset =
   | 'classic'
   | 'film'
   | 'technical'
+  | 'compact'
   | 'caption';

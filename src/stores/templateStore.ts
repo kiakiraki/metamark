@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Template, TemplatePreset } from '@/types/template';
-import { templates, minimalTemplate } from '@/templates';
+import { templates, captionTemplate } from '@/templates';
 
 interface TemplateState {
   selectedTemplate: Template | null;
@@ -10,7 +10,7 @@ interface TemplateState {
 }
 
 export const useTemplateStore = create<TemplateState>((set) => ({
-  selectedTemplate: minimalTemplate, // Default to minimal template
+  selectedTemplate: captionTemplate, // Default to caption template
   templates,
 
   selectTemplate: (preset) =>
