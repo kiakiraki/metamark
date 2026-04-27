@@ -15,10 +15,15 @@ export const useImageStore = create<ImageState>((set, get) => ({
   currentImage: null,
 
   setImage: (image) => {
-    // Clean up previous image URL if exists
-    const currentImage = get().currentImage;
-    if (currentImage?.url) {
-      ImageProcessor.cleanupImageUrl(currentImage.url);
+    const previous = get().currentImage;
+    if (previous) {
+      if (previous.url) {
+        ImageProcessor.cleanupImageUrl(previous.url);
+      }
+      if (previous.processedUrl) {
+        ImageProcessor.cleanupImageUrl(previous.processedUrl);
+      }
+      useExifStore.getState().clearExifData(previous.id);
     }
 
     set({

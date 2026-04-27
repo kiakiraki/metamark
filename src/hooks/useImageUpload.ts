@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useImageStore } from '@/stores/imageStore';
 import { useExifStore } from '@/stores/exifStore';
@@ -7,10 +7,20 @@ import { extractExifData, normalizeExifData } from '@/services/exifExtractor';
 import { useToast } from '@/hooks/useToast';
 
 export function useImageUpload() {
-  const { currentImage, setImage, clearImage } = useImageStore();
+  const currentImage = useImageStore((state) => state.currentImage);
+  const setImage = useImageStore((state) => state.setImage);
+  const clearImage = useImageStore((state) => state.clearImage);
   const setExifData = useExifStore((state) => state.setExifData);
   const setNormalizedData = useExifStore((state) => state.setNormalizedData);
   const toast = useToast();
+
+  const exifAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      exifAbortRef.current?.abort();
+    };
+  }, []);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -24,18 +34,26 @@ export function useImageUpload() {
         return;
       }
 
+      // Cancel any in-flight EXIF extraction from a previous drop so its
+      // result cannot land in the store after the image has been replaced.
+      exifAbortRef.current?.abort();
+      const controller = new AbortController();
+      exifAbortRef.current = controller;
+      const { signal } = controller;
+
       try {
         const imageFile = await ImageProcessor.loadImageFile(file);
         setImage(imageFile);
 
-        // Extract EXIF data in background
         extractExifData(file)
           .then((exifData) => {
+            if (signal.aborted) return;
             setExifData(imageFile.id, exifData);
             const normalized = normalizeExifData(exifData);
             setNormalizedData(imageFile.id, normalized);
           })
           .catch((error: unknown) => {
+            if (signal.aborted) return;
             console.error('Error processing EXIF data:', error);
             toast.error('Failed to extract EXIF data.');
           });

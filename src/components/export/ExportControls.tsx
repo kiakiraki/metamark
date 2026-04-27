@@ -17,8 +17,11 @@ export function ExportControls() {
 
   const selectedImage = useSelectedImage();
   const getNormalizedData = useExifStore((state) => state.getNormalizedData);
-  const { selectedTemplate } = useTemplateStore();
-  const { canvasSettings, updateCanvasSettings } = useSettingsStore();
+  const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
+  const canvasSettings = useSettingsStore((state) => state.canvasSettings);
+  const updateCanvasSettings = useSettingsStore(
+    (state) => state.updateCanvasSettings
+  );
 
   const handleExport = async () => {
     if (!selectedImage || !selectedTemplate) return;
@@ -54,15 +57,21 @@ export function ExportControls() {
         },
       });
 
-      // Download the blob
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `metamark_${selectedImage.name.replace(/\.[^/.]+$/, '')}.${canvasSettings.format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `metamark_${selectedImage.name.replace(/\.[^/.]+$/, '')}.${canvasSettings.format}`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        try {
+          a.click();
+        } finally {
+          a.remove();
+        }
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     } catch (error: unknown) {
       console.error('Export failed:', error);
       toast.error('Export failed. Please try again.');
