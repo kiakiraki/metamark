@@ -5,6 +5,7 @@ interface ExifState {
   exifData: Record<string, ExifData>;
   normalizedData: Record<string, NormalizedExifData>;
   lensOverrides: Record<string, string | null>;
+  locationOverrides: Record<string, string | null>;
   setExifData: (imageId: string, data: ExifData) => void;
   setNormalizedData: (imageId: string, data: NormalizedExifData) => void;
   getExifData: (imageId: string) => ExifData | null;
@@ -12,22 +13,25 @@ interface ExifState {
   getEffectiveNormalizedData: (imageId: string) => NormalizedExifData | null;
   setLensOverride: (imageId: string, value: string | null) => void;
   clearLensOverride: (imageId: string) => void;
+  setLocationOverride: (imageId: string, value: string | null) => void;
+  clearLocationOverride: (imageId: string) => void;
   clearExifData: (imageId: string) => void;
 }
 
-function applyLensOverride(
-  base: NormalizedExifData,
+function applyStringOverride(
+  current: string | null,
   override: string | null | undefined
-): NormalizedExifData {
-  if (override === undefined) return base;
+): string | null {
+  if (override === undefined) return current;
   const trimmed = typeof override === 'string' ? override.trim() : '';
-  return { ...base, lens: trimmed ? trimmed : null };
+  return trimmed ? trimmed : null;
 }
 
 export const useExifStore = create<ExifState>((set, get) => ({
   exifData: {},
   normalizedData: {},
   lensOverrides: {},
+  locationOverrides: {},
 
   setExifData: (imageId, data) =>
     set((state) => ({
@@ -46,7 +50,14 @@ export const useExifStore = create<ExifState>((set, get) => ({
   getEffectiveNormalizedData: (imageId) => {
     const base = get().normalizedData[imageId];
     if (!base) return null;
-    return applyLensOverride(base, get().lensOverrides[imageId]);
+    return {
+      ...base,
+      lens: applyStringOverride(base.lens, get().lensOverrides[imageId]),
+      location: applyStringOverride(
+        base.location,
+        get().locationOverrides[imageId]
+      ),
+    };
   },
 
   setLensOverride: (imageId, value) =>
@@ -61,6 +72,18 @@ export const useExifStore = create<ExifState>((set, get) => ({
       return { lensOverrides: rest };
     }),
 
+  setLocationOverride: (imageId, value) =>
+    set((state) => ({
+      locationOverrides: { ...state.locationOverrides, [imageId]: value },
+    })),
+
+  clearLocationOverride: (imageId) =>
+    set((state) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [imageId]: _removed, ...rest } = state.locationOverrides;
+      return { locationOverrides: rest };
+    }),
+
   clearExifData: (imageId) =>
     set((state) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -69,10 +92,14 @@ export const useExifStore = create<ExifState>((set, get) => ({
       const { [imageId]: _norm, ...restNorm } = state.normalizedData;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [imageId]: _override, ...restOverrides } = state.lensOverrides;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [imageId]: _location, ...restLocationOverrides } =
+        state.locationOverrides;
       return {
         exifData: restExif,
         normalizedData: restNorm,
         lensOverrides: restOverrides,
+        locationOverrides: restLocationOverrides,
       };
     }),
 }));

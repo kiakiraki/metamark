@@ -73,6 +73,7 @@ const PLACEHOLDER_EXIF_DATA: NormalizedExifData = {
   shutterSpeed: 'Loading...',
   iso: 'Loading...',
   dateTime: 'Loading...',
+  location: 'Loading...',
 };
 
 export function useCanvasRenderer(currentImage: ProcessedImage | null) {

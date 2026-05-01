@@ -66,6 +66,20 @@ function formatShutterSpeed(
   return calculateShutterSpeed(exposureTime) || null;
 }
 
+function formatLocation(iptc?: {
+  sublocation?: string;
+  city?: string;
+  provinceState?: string;
+  country?: string;
+}): string | null {
+  if (!iptc) return null;
+  const parts = [iptc.sublocation, iptc.city, iptc.provinceState, iptc.country]
+    .map((part) => (typeof part === 'string' ? part.trim() : ''))
+    .filter((part) => part.length > 0);
+  if (parts.length === 0) return null;
+  return parts.join(', ');
+}
+
 function formatDateTime(dateTime?: string): string | null {
   if (!dateTime) return null;
 
@@ -146,6 +160,17 @@ export async function extractExifData(file: File): Promise<ExifData> {
               }
             : undefined,
       },
+      iptc: {
+        sublocation:
+          rawExif['Sub-location'] ?? rawExif.SubLocation ?? rawExif.Sublocation,
+        city: rawExif.City,
+        provinceState:
+          rawExif['Province-State'] ?? rawExif.ProvinceState ?? rawExif.State,
+        country:
+          rawExif['Country-PrimaryLocationName'] ??
+          rawExif.Country ??
+          rawExif.CountryPrimaryLocationName,
+      },
     };
   } catch (error: unknown) {
     console.error('Error extracting EXIF data:', error);
@@ -173,5 +198,6 @@ export function normalizeExifData(exifData: ExifData): NormalizedExifData {
       exifData.settings?.exposureTime
     ),
     dateTime: formatDateTime(exifData.metadata?.dateTime),
+    location: formatLocation(exifData.iptc),
   };
 }

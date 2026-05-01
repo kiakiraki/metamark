@@ -3,6 +3,7 @@
 import { ImageWorkspace } from '@/components/workspace/ImageWorkspace';
 import { TemplateSelector } from '@/components/editor/TemplateSelector';
 import { LensOverrideField } from '@/components/editor/LensOverrideField';
+import { LocationOverrideField } from '@/components/editor/LocationOverrideField';
 import { ExportControls } from '@/components/export/ExportControls';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ToastContainer } from '@/components/ui/Toast';
@@ -46,6 +47,10 @@ export default function Home() {
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
               <LensOverrideField />
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
+              <LocationOverrideField />
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
