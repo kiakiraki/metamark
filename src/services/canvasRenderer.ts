@@ -140,7 +140,10 @@ let technicalHorizontalLayoutCache: {
 function isTechnicalHorizontalPosition(
   position: PositionPreset | undefined
 ): boolean {
-  return position === 'top-left' || position === 'bottom-left';
+  // Glass template position mapping (each position name matches one corner the
+  // panel touches): top-left & bottom-right are horizontal banners (top/bottom
+  // edges); top-right & bottom-left are vertical panels (right/left edges).
+  return position === 'top-left' || position === 'bottom-right';
 }
 
 type CompactIconKind = 'camera' | 'lens-aperture';
