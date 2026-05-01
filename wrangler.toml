@@ -1,6 +1,8 @@
 name = "metamark"
 compatibility_date = "2025-08-31"
 main = "src/worker.ts"
+workers_dev = false
+preview_urls = true
 
 [assets]
 directory = "dist"
