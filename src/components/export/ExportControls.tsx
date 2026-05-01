@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSelectedImage } from '@/stores/imageStore';
 import { useExifStore } from '@/stores/exifStore';
-import { useTemplateStore } from '@/stores/templateStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import { ImageProcessor } from '@/services/imageProcessor';
 import clsx from 'clsx';
 import { useToast } from '@/hooks/useToast';
+import { useEffectiveTemplate } from '@/hooks/useEffectiveTemplate';
 
 export function ExportControls() {
   const [isExporting, setIsExporting] = useState(false);
@@ -19,7 +19,7 @@ export function ExportControls() {
   const getEffectiveNormalizedData = useExifStore(
     (state) => state.getEffectiveNormalizedData
   );
-  const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
+  const selectedTemplate = useEffectiveTemplate();
   const canvasSettings = useSettingsStore((state) => state.canvasSettings);
   const updateCanvasSettings = useSettingsStore(
     (state) => state.updateCanvasSettings

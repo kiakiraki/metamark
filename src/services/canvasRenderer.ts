@@ -780,7 +780,8 @@ export class CanvasRenderer {
     if (layout.contentHeight > 0) {
       const lineWidth = Math.max(1, Math.round(scaleFactor));
       ctx.save();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = style.textColor;
       ctx.fillRect(
         Math.round(dividerX - lineWidth / 2),
         contentTop,
