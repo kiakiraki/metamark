@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useTemplateStore } from '@/stores/templateStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { templates } from '@/templates';
 import type { TemplatePreset } from '@/types/template';
 import { PositionSelector } from './PositionSelector';
@@ -10,6 +11,8 @@ import clsx from 'clsx';
 export function TemplateSelector() {
   const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
   const selectTemplate = useTemplateStore((state) => state.selectTemplate);
+  const captionInvert = useSettingsStore((state) => state.captionInvert);
+  const setCaptionInvert = useSettingsStore((state) => state.setCaptionInvert);
 
   const templatePresets: {
     key: TemplatePreset;
@@ -108,6 +111,42 @@ export function TemplateSelector() {
               visible
             </p>
           </div>
+        </div>
+      )}
+
+      {selectedTemplate?.customDraw === 'caption' && (
+        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
+          <label className="flex items-center justify-between cursor-pointer">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Invert colors
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                White background with black text
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={captionInvert}
+              onClick={() => setCaptionInvert(!captionInvert)}
+              className={clsx(
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'dark:focus:ring-offset-gray-700',
+                captionInvert
+                  ? 'bg-blue-600 dark:bg-blue-500'
+                  : 'bg-gray-300 dark:bg-gray-600'
+              )}
+            >
+              <span
+                className={clsx(
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  captionInvert ? 'translate-x-6' : 'translate-x-1'
+                )}
+              />
+            </button>
+          </label>
         </div>
       )}
 
