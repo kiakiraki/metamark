@@ -54,6 +54,41 @@ describe('normalizeExifData', () => {
     expect(result.aperture).toBeNull();
     expect(result.shutterSpeed).toBeNull();
     expect(result.dateTime).toBeNull();
+    expect(result.location).toBeNull();
+  });
+
+  it('joins all IPTC location parts with commas', () => {
+    const result = normalizeExifData({
+      iptc: {
+        sublocation: 'Asakusa',
+        city: 'Taito',
+        provinceState: 'Tokyo',
+        country: 'Japan',
+      },
+    });
+
+    expect(result.location).toBe('Asakusa, Taito, Tokyo, Japan');
+  });
+
+  it('omits missing IPTC parts and trims whitespace', () => {
+    const result = normalizeExifData({
+      iptc: {
+        sublocation: '  ',
+        city: ' Kyoto ',
+        country: 'Japan',
+      },
+    });
+
+    expect(result.location).toBe('Kyoto, Japan');
+  });
+
+  it('returns null location when IPTC is empty', () => {
+    expect(normalizeExifData({ iptc: {} }).location).toBeNull();
+    expect(
+      normalizeExifData({
+        iptc: { city: '', country: '   ' },
+      }).location
+    ).toBeNull();
   });
 
   it('formats long exposure shutter speed', () => {

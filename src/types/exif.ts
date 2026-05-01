@@ -21,6 +21,12 @@ export interface ExifData {
       longitude?: number;
     };
   };
+  iptc?: {
+    sublocation?: string;
+    city?: string;
+    provinceState?: string;
+    country?: string;
+  };
 }
 
 export interface NormalizedExifData {
@@ -33,4 +39,5 @@ export interface NormalizedExifData {
   aperture: string | null;
   shutterSpeed: string | null;
   dateTime: string | null;
+  location: string | null;
 }

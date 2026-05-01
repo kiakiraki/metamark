@@ -53,6 +53,7 @@ interface CaptionLayout {
   titleLines: string[];
   paramsLines: string[];
   dateLines: string[];
+  locationLines: string[];
 }
 
 let captionLayoutCache: {
@@ -66,7 +67,8 @@ type TechnicalIconKind =
   | 'aperture'
   | 'shutter'
   | 'iso'
-  | 'date';
+  | 'date'
+  | 'location';
 
 interface TechnicalRow {
   kind: TechnicalIconKind;
@@ -117,9 +119,12 @@ interface TechnicalHorizontalLayout {
   dividerThickness: number;
   dividerToItemsGap: number;
   rows: TechnicalRow[];
+  gridRows: number;
+  gridCols: number;
   itemColumnGap: number;
   itemColumnWidth: number;
   itemRowHeight: number;
+  itemRowGap: number;
   iconRadius: number;
   iconStrokeWidth: number;
   iconToTextGap: number;
@@ -146,13 +151,14 @@ function isTechnicalHorizontalPosition(
   return position === 'top-left' || position === 'bottom-right';
 }
 
-type CompactIconKind = 'camera' | 'lens-aperture';
+type CompactIconKind = 'camera' | 'lens-aperture' | 'location';
 
 interface CompactLayout {
   panelHeight: number;
   padding: number;
   borderRadius: number;
   cellWidth: number;
+  fullRowWidth: number;
   columnGap: number;
   rowGap: number;
   rowHeight: number;
@@ -166,6 +172,7 @@ interface CompactLayout {
   lensValue: string;
   settingsValue: string;
   dateValue: string;
+  locationValue: string | null;
 }
 
 let compactLayoutCache: {
@@ -664,6 +671,11 @@ export class CanvasRenderer {
       ? this.wrapText(measureCtx, dateText, rightColumnWidth)
       : [];
 
+    const locationText = exifData.location ?? null;
+    const locationLines = locationText
+      ? this.wrapText(measureCtx, locationText, rightColumnWidth)
+      : [];
+
     const blockHeight = (
       lines: string[],
       fontSize: number,
@@ -691,9 +703,16 @@ export class CanvasRenderer {
       metaFontSize,
       metaLineHeight
     );
-    const rightBlocks = [paramsBlockHeight, dateBlockHeight].filter(
-      (h) => h > 0
+    const locationBlockHeight = blockHeight(
+      locationLines,
+      metaFontSize,
+      metaLineHeight
     );
+    const rightBlocks = [
+      paramsBlockHeight,
+      dateBlockHeight,
+      locationBlockHeight,
+    ].filter((h) => h > 0);
     const rightHeight =
       rightBlocks.reduce((sum, h) => sum + h, 0) +
       Math.max(0, rightBlocks.length - 1) * rightRowGap;
@@ -724,6 +743,7 @@ export class CanvasRenderer {
       titleLines,
       paramsLines,
       dateLines,
+      locationLines,
     };
     captionLayoutCache = { key: cacheKey, layout };
     return layout;
@@ -873,6 +893,26 @@ export class CanvasRenderer {
       });
     }
 
+    if (layout.locationLines.length > 0) {
+      rightBlocks.push({
+        height:
+          layout.metaFontSize +
+          (layout.locationLines.length - 1) * layout.metaLineHeight,
+        draw: (top) => {
+          ctx.save();
+          ctx.textAlign = 'right';
+          ctx.globalAlpha = 0.6;
+          ctx.font = `${layout.metaFontSize}px ${style.fontFamily}`;
+          let cursorY = top + layout.metaFontSize;
+          for (const line of layout.locationLines) {
+            ctx.fillText(line, rightEdgeX, cursorY);
+            cursorY += layout.metaLineHeight;
+          }
+          ctx.restore();
+        },
+      });
+    }
+
     if (rightBlocks.length > 0) {
       const totalRightHeight =
         rightBlocks.reduce((sum, b) => sum + b.height, 0) +
@@ -955,6 +995,13 @@ export class CanvasRenderer {
     }
     if (exifData.dateTime) {
       rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
+    }
+    if (exifData.location) {
+      rows.push({
+        kind: 'location',
+        label: 'Location',
+        value: exifData.location,
+      });
     }
 
     const layout: TechnicalLayout = {
@@ -1055,13 +1102,25 @@ export class CanvasRenderer {
     if (exifData.dateTime) {
       rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
     }
+    if (exifData.location) {
+      rows.push({
+        kind: 'location',
+        label: 'Location',
+        value: exifData.location,
+      });
+    }
 
     const innerWidth = Math.max(0, panelWidth - padding * 2);
-    const itemCount = Math.max(1, rows.length);
-    const totalGapWidth = (itemCount - 1) * itemColumnGap;
+    // Wrap to a 2-row grid once we exceed 4 items so each cell stays wide
+    // enough for values like the date and location to render without being
+    // truncated on narrow (portrait) panels.
+    const gridRows = rows.length > 4 ? 2 : 1;
+    const gridCols = Math.max(1, Math.ceil(rows.length / gridRows));
+    const itemRowGap = baseFontSize * 0.85;
+    const totalGapWidth = (gridCols - 1) * itemColumnGap;
     const itemColumnWidth = Math.max(
       0,
-      (innerWidth - totalGapWidth) / itemCount
+      (innerWidth - totalGapWidth) / gridCols
     );
 
     const valueMaxWidth = Math.max(
@@ -1106,8 +1165,10 @@ export class CanvasRenderer {
         ? headerToDividerGap + dividerThickness + dividerToItemsGap
         : 0;
 
-    const contentHeight =
-      headerHeight + dividerSpace + (rows.length ? itemRowHeight : 0);
+    const itemsTotalHeight = rows.length
+      ? gridRows * itemRowHeight + (gridRows - 1) * itemRowGap
+      : 0;
+    const contentHeight = headerHeight + dividerSpace + itemsTotalHeight;
     const totalHeight = padding * 2 + contentHeight;
 
     const layout: TechnicalHorizontalLayout = {
@@ -1125,9 +1186,12 @@ export class CanvasRenderer {
       dividerThickness,
       dividerToItemsGap,
       rows,
+      gridRows,
+      gridCols,
       itemColumnGap,
       itemColumnWidth,
       itemRowHeight,
+      itemRowGap,
       iconRadius,
       iconStrokeWidth,
       iconToTextGap,
@@ -1240,10 +1304,14 @@ export class CanvasRenderer {
 
     for (let i = 0; i < layout.rows.length; i++) {
       const row = layout.rows[i];
+      const col = i % layout.gridCols;
+      const gridRow = Math.floor(i / layout.gridCols);
       const cellX =
-        innerLeft + i * (layout.itemColumnWidth + layout.itemColumnGap);
+        innerLeft + col * (layout.itemColumnWidth + layout.itemColumnGap);
+      const cellTop =
+        itemRowTop + gridRow * (layout.itemRowHeight + layout.itemRowGap);
       const iconCx = cellX + layout.iconRadius;
-      const iconCy = itemRowTop + layout.itemRowHeight / 2;
+      const iconCy = cellTop + layout.itemRowHeight / 2;
 
       this.drawTechnicalIcon(
         ctx,
@@ -1263,7 +1331,7 @@ export class CanvasRenderer {
         layout.itemLabelFontSize +
         layout.itemLabelToValueGap +
         valueBlockHeight;
-      const textTop = itemRowTop + (layout.itemRowHeight - textBlockHeight) / 2;
+      const textTop = cellTop + (layout.itemRowHeight - textBlockHeight) / 2;
       const textX = cellX + layout.iconRadius * 2 + layout.iconToTextGap;
 
       ctx.save();
@@ -1504,6 +1572,29 @@ export class CanvasRenderer {
         ctx.stroke();
         break;
       }
+      case 'location': {
+        // Map pin: circular head joined to a downward tip via tangent lines.
+        const headR = r * 0.42;
+        const headCy = cy - r * 0.2;
+        const tipY = cy + r * 0.7;
+        const dy = tipY - headCy;
+        // Tangent points from external tip to head circle (symmetric about cx).
+        const ty = (headR * headR) / dy;
+        const tx = Math.sqrt(Math.max(0, headR * headR - ty * ty));
+        const angRight = Math.atan2(ty, tx);
+        const angLeft = Math.atan2(ty, -tx);
+        ctx.beginPath();
+        // Major arc of head circle from right tangent over the top to left tangent.
+        ctx.arc(cx, headCy, headR, angRight, angLeft, true);
+        ctx.lineTo(cx, tipY);
+        ctx.closePath();
+        ctx.stroke();
+        // Inner dot
+        ctx.beginPath();
+        ctx.arc(cx, headCy, Math.max(1, headR * 0.38), 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
     }
 
     ctx.restore();
@@ -1719,7 +1810,13 @@ export class CanvasRenderer {
     const panelW = template.position.width * scaleFactor;
     const innerWidth = Math.max(0, panelW - padding * 2);
     const cellWidth = Math.max(0, (innerWidth - columnGap) / 2);
-    const panelHeight = padding * 2 + rowHeight * 2 + rowGap;
+    const fullRowWidth = innerWidth;
+    const locationValue = exifData.location ?? null;
+    const panelHeight =
+      padding * 2 +
+      rowHeight * 2 +
+      rowGap +
+      (locationValue ? rowHeight + rowGap : 0);
 
     const cameraValue = exifData.camera ?? '—';
     const lensValue = exifData.lens ?? '—';
@@ -1745,6 +1842,7 @@ export class CanvasRenderer {
       padding,
       borderRadius,
       cellWidth,
+      fullRowWidth,
       columnGap,
       rowGap,
       rowHeight,
@@ -1758,6 +1856,7 @@ export class CanvasRenderer {
       lensValue,
       settingsValue,
       dateValue,
+      locationValue,
     };
     compactLayoutCache = { key: cacheKey, layout };
     return layout;
@@ -1824,6 +1923,26 @@ export class CanvasRenderer {
           ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
           ctx.stroke();
         }
+        break;
+      }
+      case 'location': {
+        // Map pin: matches the Glass template pin, scaled to compact size.
+        const headR = size * 0.21;
+        const headCy = cy - size * 0.1;
+        const tipY = cy + size * 0.35;
+        const dy = tipY - headCy;
+        const ty = (headR * headR) / dy;
+        const tx = Math.sqrt(Math.max(0, headR * headR - ty * ty));
+        const angRight = Math.atan2(ty, tx);
+        const angLeft = Math.atan2(ty, -tx);
+        ctx.beginPath();
+        ctx.arc(cx, headCy, headR, angRight, angLeft, true);
+        ctx.lineTo(cx, tipY);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, headCy, Math.max(1, headR * 0.38), 0, Math.PI * 2);
+        ctx.fill();
         break;
       }
     }
@@ -1971,6 +2090,21 @@ export class CanvasRenderer {
       layout,
       style.fontFamily
     );
+
+    if (layout.locationValue) {
+      const row3Y = row2Y + layout.rowHeight + layout.rowGap;
+      this.drawCompactCell(
+        ctx,
+        col1X,
+        row3Y,
+        layout.fullRowWidth,
+        'LOCATION',
+        layout.locationValue,
+        'location',
+        layout,
+        style.fontFamily
+      );
+    }
 
     ctx.restore();
   }
