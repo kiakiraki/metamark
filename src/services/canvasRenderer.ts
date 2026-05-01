@@ -102,6 +102,47 @@ let technicalLayoutCache: {
   layout: TechnicalLayout;
 } | null = null;
 
+interface TechnicalHorizontalLayout {
+  width: number;
+  height: number;
+  padding: number;
+  borderRadius: number;
+  makeText: string | null;
+  modelText: string | null;
+  makeFontSize: number;
+  modelFontSize: number;
+  makeToModelGap: number;
+  headerHeight: number;
+  headerToDividerGap: number;
+  dividerThickness: number;
+  dividerToItemsGap: number;
+  rows: TechnicalRow[];
+  itemColumnGap: number;
+  itemColumnWidth: number;
+  itemRowHeight: number;
+  iconRadius: number;
+  iconStrokeWidth: number;
+  iconToTextGap: number;
+  itemLabelFontSize: number;
+  itemValueFontSize: number;
+  itemLabelToValueGap: number;
+  itemValueLineHeight: number;
+  itemValueLines: string[][];
+  itemValueMaxLines: number;
+  itemLabelOpacity: number;
+}
+
+let technicalHorizontalLayoutCache: {
+  key: string;
+  layout: TechnicalHorizontalLayout;
+} | null = null;
+
+function isTechnicalHorizontalPosition(
+  position: PositionPreset | undefined
+): boolean {
+  return position === 'top-left' || position === 'bottom-left';
+}
+
 type CompactIconKind = 'camera' | 'lens-aperture';
 
 interface CompactLayout {
@@ -301,15 +342,36 @@ export class CanvasRenderer {
     // Calculate scaled template dimensions
     const isBottomPadding = template.layout === 'bottom-padding';
     const isTechnical = template.customDraw === 'technical';
-    const scaledWidth = isBottomPadding
-      ? canvasWidth
-      : template.position.width * scaleFactor;
+    const useTechnicalHorizontal =
+      isTechnical && isTechnicalHorizontalPosition(overlayPosition);
+    let scaledWidth: number;
     let scaledHeight: number;
-    if (isTechnical) {
+    if (isBottomPadding) {
+      scaledWidth = canvasWidth;
+      scaledHeight = this.calculateDynamicTemplateHeight(
+        template,
+        exifData,
+        scaleFactor,
+        scaledWidth
+      );
+    } else if (useTechnicalHorizontal) {
+      // Horizontal banner: spans the image width with symmetric margins
+      const imageAreaWidth = drawRect ? drawRect.drawWidth : canvasWidth;
+      scaledWidth = Math.max(0, imageAreaWidth - margin * 2);
+      const layout = this.buildTechnicalHorizontalLayout(
+        template,
+        exifData,
+        scaleFactor,
+        scaledWidth
+      );
+      scaledHeight = layout.height;
+    } else if (isTechnical) {
       // Technical panel fills the image vertically with symmetric margins
+      scaledWidth = template.position.width * scaleFactor;
       const imageAreaHeight = drawRect ? drawRect.drawHeight : canvasHeight;
       scaledHeight = Math.max(0, imageAreaHeight - margin * 2);
     } else {
+      scaledWidth = template.position.width * scaleFactor;
       scaledHeight = this.calculateDynamicTemplateHeight(
         template,
         exifData,
@@ -376,9 +438,10 @@ export class CanvasRenderer {
         ...template.position,
         x,
         y,
-        width: isBottomPadding
-          ? scaledWidth / scaleFactor
-          : template.position.width,
+        width:
+          isBottomPadding || useTechnicalHorizontal
+            ? scaledWidth / scaleFactor
+            : template.position.width,
         height: scaledHeight / scaleFactor, // Store the calculated height back to template
       },
     };
@@ -914,6 +977,319 @@ export class CanvasRenderer {
     };
     technicalLayoutCache = { key: cacheKey, layout };
     return layout;
+  }
+
+  private static buildTechnicalHorizontalLayout(
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number,
+    panelWidth: number
+  ): TechnicalHorizontalLayout {
+    const cacheKey = JSON.stringify([
+      'technical-horizontal',
+      scaleFactor,
+      panelWidth,
+      exifData,
+    ]);
+    if (technicalHorizontalLayoutCache?.key === cacheKey) {
+      return technicalHorizontalLayoutCache.layout;
+    }
+
+    const padding = template.style.padding * scaleFactor;
+    const borderRadius = template.style.borderRadius * scaleFactor;
+    const baseFontSize = Math.max(11, template.style.fontSize * scaleFactor);
+
+    const makeFontSize = Math.max(11, baseFontSize * 0.85);
+    const modelFontSize = Math.max(20, baseFontSize * 2.0);
+    const makeToModelGap = makeFontSize * 0.45;
+    const headerToDividerGap = baseFontSize * 0.95;
+    const dividerThickness = Math.max(1, scaleFactor);
+    const dividerToItemsGap = baseFontSize * 1.0;
+
+    const iconRadius = Math.max(13, baseFontSize * 1.25);
+    const iconStrokeWidth = Math.max(1, scaleFactor * 1.1);
+    const iconToTextGap = Math.max(8, baseFontSize * 0.55);
+    const itemLabelFontSize = Math.max(9, baseFontSize * 0.7);
+    const itemValueFontSize = Math.max(12, baseFontSize * 0.98);
+    const itemLabelToValueGap = itemValueFontSize * 0.18;
+    const itemValueLineHeight = itemValueFontSize * 1.18;
+    const itemColumnGap = Math.max(8, baseFontSize * 0.6);
+    const itemLabelOpacity = 0.65;
+
+    const { make, model } = this.getCaptionCameraParts(exifData);
+    const makeText = make ? make.toUpperCase() : null;
+    const modelText = model ?? null;
+
+    const rows: TechnicalRow[] = [];
+    if (exifData.lens) {
+      rows.push({ kind: 'lens', label: 'Lens', value: exifData.lens });
+    }
+    if (exifData.focalLength) {
+      rows.push({
+        kind: 'focal',
+        label: 'Focal',
+        value: exifData.focalLength,
+      });
+    }
+    if (exifData.aperture) {
+      rows.push({
+        kind: 'aperture',
+        label: 'Aperture',
+        value: exifData.aperture.replace(/^f\//i, 'ƒ/'),
+      });
+    }
+    if (exifData.shutterSpeed) {
+      rows.push({
+        kind: 'shutter',
+        label: 'Shutter',
+        value: exifData.shutterSpeed,
+      });
+    }
+    if (exifData.iso) {
+      rows.push({ kind: 'iso', label: 'ISO', value: exifData.iso });
+    }
+    if (exifData.dateTime) {
+      rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
+    }
+
+    const innerWidth = Math.max(0, panelWidth - padding * 2);
+    const itemCount = Math.max(1, rows.length);
+    const totalGapWidth = (itemCount - 1) * itemColumnGap;
+    const itemColumnWidth = Math.max(
+      0,
+      (innerWidth - totalGapWidth) / itemCount
+    );
+
+    const valueMaxWidth = Math.max(
+      0,
+      itemColumnWidth - iconRadius * 2 - iconToTextGap
+    );
+
+    const measureCtx = getMeasureContext();
+    const itemValueLines: string[][] = [];
+    let itemValueMaxLines = 1;
+
+    for (const row of rows) {
+      let lines: string[] = [row.value];
+      if (measureCtx) {
+        measureCtx.font = `500 ${itemValueFontSize}px ${template.style.fontFamily}`;
+        const wrapped = this.wrapText(measureCtx, row.value, valueMaxWidth);
+        // Collapse to at most 2 lines; the merged tail will be ellipsized at draw
+        lines =
+          wrapped.length <= 2
+            ? wrapped
+            : [wrapped[0], wrapped.slice(1).join(' ')];
+      }
+      itemValueLines.push(lines);
+      itemValueMaxLines = Math.max(itemValueMaxLines, lines.length);
+    }
+
+    const valueBlockHeight =
+      itemValueFontSize +
+      Math.max(0, itemValueMaxLines - 1) * itemValueLineHeight;
+    const textBlockHeight =
+      itemLabelFontSize + itemLabelToValueGap + valueBlockHeight;
+    const iconHeight = iconRadius * 2;
+    const itemRowHeight = Math.max(textBlockHeight, iconHeight);
+
+    const headerHeight =
+      (makeText ? makeFontSize : 0) +
+      (makeText && modelText ? makeToModelGap : 0) +
+      (modelText ? modelFontSize : 0);
+
+    const dividerSpace =
+      headerHeight && rows.length
+        ? headerToDividerGap + dividerThickness + dividerToItemsGap
+        : 0;
+
+    const contentHeight =
+      headerHeight + dividerSpace + (rows.length ? itemRowHeight : 0);
+    const totalHeight = padding * 2 + contentHeight;
+
+    const layout: TechnicalHorizontalLayout = {
+      width: panelWidth,
+      height: totalHeight,
+      padding,
+      borderRadius,
+      makeText,
+      modelText,
+      makeFontSize,
+      modelFontSize,
+      makeToModelGap,
+      headerHeight,
+      headerToDividerGap,
+      dividerThickness,
+      dividerToItemsGap,
+      rows,
+      itemColumnGap,
+      itemColumnWidth,
+      itemRowHeight,
+      iconRadius,
+      iconStrokeWidth,
+      iconToTextGap,
+      itemLabelFontSize,
+      itemValueFontSize,
+      itemLabelToValueGap,
+      itemValueLineHeight,
+      itemValueLines,
+      itemValueMaxLines,
+      itemLabelOpacity,
+    };
+    technicalHorizontalLayoutCache = { key: cacheKey, layout };
+    return layout;
+  }
+
+  private static drawTechnicalHorizontalTemplate(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): void {
+    const { style, position } = template;
+    const panelX = position.x;
+    const panelY = position.y;
+    const panelW = position.width * scaleFactor;
+    const panelH = position.height * scaleFactor;
+
+    const layout = this.buildTechnicalHorizontalLayout(
+      template,
+      exifData,
+      scaleFactor,
+      panelW
+    );
+
+    this.drawFrostedPanel(
+      ctx,
+      panelX,
+      panelY,
+      panelW,
+      panelH,
+      layout.borderRadius,
+      scaleFactor,
+      style.backgroundColor
+    );
+
+    const innerLeft = panelX + layout.padding;
+    const innerTop = panelY + layout.padding;
+    const innerRight = panelX + panelW - layout.padding;
+    let cursorY = innerTop;
+
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+
+    if (layout.makeText) {
+      ctx.save();
+      ctx.font = `${layout.makeFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = 0.85;
+      ctx.letterSpacing = '0.16em';
+      ctx.fillText(layout.makeText, innerLeft, cursorY + layout.makeFontSize);
+      ctx.restore();
+      cursorY +=
+        layout.makeFontSize + (layout.modelText ? layout.makeToModelGap : 0);
+    }
+
+    if (layout.modelText) {
+      ctx.save();
+      ctx.font = `500 ${layout.modelFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = 1;
+      this.fillTextEllipsis(
+        ctx,
+        layout.modelText,
+        innerLeft,
+        cursorY + layout.modelFontSize,
+        Math.max(0, panelW - layout.padding * 2)
+      );
+      ctx.restore();
+      cursorY += layout.modelFontSize;
+    }
+
+    if (layout.headerHeight && layout.rows.length) {
+      cursorY += layout.headerToDividerGap;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillRect(
+        innerLeft,
+        cursorY,
+        Math.max(0, innerRight - innerLeft),
+        layout.dividerThickness
+      );
+      ctx.restore();
+      cursorY += layout.dividerThickness + layout.dividerToItemsGap;
+    }
+
+    if (layout.rows.length === 0) {
+      ctx.restore();
+      return;
+    }
+
+    const itemRowTop = cursorY;
+    const labelMaxWidth = Math.max(
+      0,
+      layout.itemColumnWidth - layout.iconRadius * 2 - layout.iconToTextGap
+    );
+
+    for (let i = 0; i < layout.rows.length; i++) {
+      const row = layout.rows[i];
+      const cellX =
+        innerLeft + i * (layout.itemColumnWidth + layout.itemColumnGap);
+      const iconCx = cellX + layout.iconRadius;
+      const iconCy = itemRowTop + layout.itemRowHeight / 2;
+
+      this.drawTechnicalIcon(
+        ctx,
+        row.kind,
+        iconCx,
+        iconCy,
+        layout.iconRadius,
+        layout.iconStrokeWidth,
+        style.fontFamily
+      );
+
+      const valueLines = layout.itemValueLines[i] ?? [row.value];
+      const valueBlockHeight =
+        layout.itemValueFontSize +
+        Math.max(0, valueLines.length - 1) * layout.itemValueLineHeight;
+      const textBlockHeight =
+        layout.itemLabelFontSize +
+        layout.itemLabelToValueGap +
+        valueBlockHeight;
+      const textTop = itemRowTop + (layout.itemRowHeight - textBlockHeight) / 2;
+      const textX = cellX + layout.iconRadius * 2 + layout.iconToTextGap;
+
+      ctx.save();
+      ctx.font = `${layout.itemLabelFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = layout.itemLabelOpacity;
+      this.fillTextEllipsis(
+        ctx,
+        row.label,
+        textX,
+        textTop + layout.itemLabelFontSize,
+        labelMaxWidth
+      );
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = `500 ${layout.itemValueFontSize}px ${style.fontFamily}`;
+      ctx.globalAlpha = 1;
+      let valueY =
+        textTop +
+        layout.itemLabelFontSize +
+        layout.itemLabelToValueGap +
+        layout.itemValueFontSize;
+      for (const line of valueLines) {
+        this.fillTextEllipsis(ctx, line, textX, valueY, labelMaxWidth);
+        valueY += layout.itemValueLineHeight;
+      }
+      ctx.restore();
+    }
+
+    ctx.restore();
   }
 
   private static drawFrostedPanel(
@@ -1613,7 +1989,16 @@ export class CanvasRenderer {
     }
 
     if (template.customDraw === 'technical') {
-      this.drawTechnicalTemplate(ctx, template, exifData, scaleFactor);
+      if (isTechnicalHorizontalPosition(options?.overlayPosition)) {
+        this.drawTechnicalHorizontalTemplate(
+          ctx,
+          template,
+          exifData,
+          scaleFactor
+        );
+      } else {
+        this.drawTechnicalTemplate(ctx, template, exifData, scaleFactor);
+      }
       return;
     }
 
