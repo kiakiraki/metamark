@@ -2,6 +2,7 @@
 
 import { ImageWorkspace } from '@/components/workspace/ImageWorkspace';
 import { TemplateSelector } from '@/components/editor/TemplateSelector';
+import { LensOverrideField } from '@/components/editor/LensOverrideField';
 import { ExportControls } from '@/components/export/ExportControls';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ToastContainer } from '@/components/ui/Toast';
@@ -41,6 +42,10 @@ export default function Home() {
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
               <TemplateSelector />
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
+              <LensOverrideField />
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">

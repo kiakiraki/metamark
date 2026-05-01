@@ -16,7 +16,9 @@ export function ExportControls() {
   const toast = useToast();
 
   const selectedImage = useSelectedImage();
-  const getNormalizedData = useExifStore((state) => state.getNormalizedData);
+  const getEffectiveNormalizedData = useExifStore(
+    (state) => state.getEffectiveNormalizedData
+  );
   const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
   const canvasSettings = useSettingsStore((state) => state.canvasSettings);
   const updateCanvasSettings = useSettingsStore(
@@ -30,7 +32,7 @@ export function ExportControls() {
 
     try {
       const image = await ImageProcessor.createImageElement(selectedImage.url);
-      const exifData = getNormalizedData(selectedImage.id);
+      const exifData = getEffectiveNormalizedData(selectedImage.id);
 
       if (!exifData) {
         throw new Error('No EXIF data available');
