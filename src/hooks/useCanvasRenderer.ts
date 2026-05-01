@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from 'react';
-import { useExifStore } from '@/stores/exifStore';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { ImageProcessor } from '@/services/imageProcessor';
@@ -8,6 +7,7 @@ import type { NormalizedExifData } from '@/types/exif';
 import type { ProcessedImage } from '@/types/image';
 import type { Template } from '@/types/template';
 import { getDisplayBounds, useResponsiveCanvas } from './useResponsiveCanvas';
+import { useEffectiveExifData } from './useEffectiveExifData';
 
 // 2x oversample over the on-screen size: keeps a Retina-grade source
 // for the browser's CSS scaler while letting step-down do the heavy
@@ -79,9 +79,7 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
 
-  const currentExifData = useExifStore((state) =>
-    currentImage?.id ? state.normalizedData[currentImage.id] : undefined
-  );
+  const currentExifData = useEffectiveExifData(currentImage?.id);
   const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
   const canvasSettings = useSettingsStore((state) => state.canvasSettings);
 
