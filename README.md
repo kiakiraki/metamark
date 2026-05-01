@@ -88,10 +88,10 @@ src/
 
 ## 🎨 Templates
 
-- **Minimal**: Clean, essential information
-- **Classic**: Traditional layout
-- **Film**: Retro film-camera date imprint
+- **Caption**: Black footer bar
+- **Compact**: 2×2 frosted info card
 - **Technical**: Detailed specs (monospaced)
+- **Film**: Retro film-camera date imprint
 
 ## 📋 Requirements
 
@@ -155,7 +155,7 @@ This project is configured for deployment to Cloudflare Workers with custom doma
 
 - Image upload with drag & drop
 - EXIF metadata extraction
-- Basic template system (Minimal, Classic, Technical, Film)
+- Template system (Caption, Compact, Technical, Film)
 - Canvas rendering with overlays
 - High-quality image export
 - Responsive UI with dark/light themes

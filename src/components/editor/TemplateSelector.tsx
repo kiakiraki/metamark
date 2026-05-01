@@ -22,8 +22,6 @@ export function TemplateSelector() {
     { key: 'caption', name: 'Caption', description: 'Black footer bar' },
     { key: 'compact', name: 'Compact', description: '2×2 frosted info card' },
     { key: 'technical', name: 'Glass', description: 'Frosted glass card' },
-    { key: 'minimal', name: 'Minimal', description: 'Clean and simple' },
-    { key: 'classic', name: 'Classic', description: 'Traditional layout' },
     { key: 'film', name: 'Film', description: 'Vintage style' },
   ];
 

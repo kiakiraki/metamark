@@ -51,10 +51,4 @@ export interface TemplateField {
   format?: (value: string | null) => string;
 }
 
-export type TemplatePreset =
-  | 'minimal'
-  | 'classic'
-  | 'film'
-  | 'technical'
-  | 'compact'
-  | 'caption';
+export type TemplatePreset = 'film' | 'technical' | 'compact' | 'caption';
