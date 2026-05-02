@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { ThemeProvider } from '@/contexts/ThemeContext';
 import { geistSans, geistMono, dotGothic, besley } from '@/styles/fonts';
 
 export const metadata: Metadata = {
@@ -14,12 +13,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dotGothic.variable} ${besley.variable} antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        {children}
       </body>
     </html>
   );
