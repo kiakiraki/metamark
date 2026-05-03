@@ -117,51 +117,39 @@ export function TemplateSelector() {
 
       {selectedTemplate?.customDraw === 'imprint' && (
         <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
-          <div className="space-y-2">
+          <label className="flex items-center justify-between cursor-pointer">
             <div className="space-y-0.5">
               <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                Text color
+                Invert text color
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Pick the color that reads best against your photo
+                Black text instead of white
               </p>
             </div>
-            <div
-              role="radiogroup"
-              aria-label="Imprint text color"
-              className="grid grid-cols-2 gap-2"
+            <button
+              type="button"
+              role="switch"
+              aria-checked={imprintColor === 'black'}
+              onClick={() =>
+                setImprintColor(imprintColor === 'black' ? 'white' : 'black')
+              }
+              className={clsx(
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'dark:focus:ring-offset-gray-700',
+                imprintColor === 'black'
+                  ? 'bg-blue-600 dark:bg-blue-500'
+                  : 'bg-gray-300 dark:bg-gray-600'
+              )}
             >
-              {(['white', 'black'] as const).map((value) => {
-                const isActive = imprintColor === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    onClick={() => setImprintColor(value)}
-                    className={clsx(
-                      'flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors',
-                      'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-700',
-                      isActive
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200'
-                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
-                    )}
-                  >
-                    <span
-                      className={clsx(
-                        'h-3 w-3 rounded-full border',
-                        value === 'white'
-                          ? 'bg-white border-gray-300'
-                          : 'bg-black border-gray-700'
-                      )}
-                    />
-                    {value === 'white' ? 'White' : 'Black'}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+              <span
+                className={clsx(
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  imprintColor === 'black' ? 'translate-x-6' : 'translate-x-1'
+                )}
+              />
+            </button>
+          </label>
         </div>
       )}
 
