@@ -1,4 +1,5 @@
-import { Geist, Geist_Mono, DotGothic16, Besley } from 'next/font/google';
+import { Geist, Geist_Mono, Besley } from 'next/font/google';
+import localFont from 'next/font/local';
 
 export const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -10,11 +11,13 @@ export const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-// Self-hosted font for the film template.
-export const dotGothic = DotGothic16({
-  weight: '400',
-  subsets: ['latin'],
+// Self-hosted: DotGothic16 via next/font/google fans out into ~120 woff2
+// subset requests at build time and a single transient fetch failure breaks
+// the build. Keep the file in src/ so next/font/local bundles it.
+export const dotGothic = localFont({
+  src: './fonts/DotGothic16-Latin.woff2',
   variable: '--font-dotgothic',
+  display: 'swap',
 });
 
 export const besley = Besley({
