@@ -3,6 +3,7 @@ import { filmTemplate } from './film';
 import { technicalTemplate } from './technical';
 import { compactTemplate } from './compact';
 import { captionTemplate } from './caption';
+import { imprintTemplate } from './imprint';
 
 // Only include available templates. Missing presets are treated as not available.
 export const templates: Partial<Record<TemplatePreset, Template>> = {
@@ -10,6 +11,13 @@ export const templates: Partial<Record<TemplatePreset, Template>> = {
   technical: technicalTemplate,
   compact: compactTemplate,
   caption: captionTemplate,
+  imprint: imprintTemplate,
 };
 
-export { filmTemplate, technicalTemplate, compactTemplate, captionTemplate };
+export {
+  filmTemplate,
+  technicalTemplate,
+  compactTemplate,
+  captionTemplate,
+  imprintTemplate,
+};

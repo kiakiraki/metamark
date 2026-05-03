@@ -13,6 +13,8 @@ export function TemplateSelector() {
   const selectTemplate = useTemplateStore((state) => state.selectTemplate);
   const captionInvert = useSettingsStore((state) => state.captionInvert);
   const setCaptionInvert = useSettingsStore((state) => state.setCaptionInvert);
+  const imprintColor = useSettingsStore((state) => state.imprintColor);
+  const setImprintColor = useSettingsStore((state) => state.setImprintColor);
 
   const templatePresets: {
     key: TemplatePreset;
@@ -22,6 +24,7 @@ export function TemplateSelector() {
     { key: 'caption', name: 'Caption', description: 'Black footer bar' },
     { key: 'compact', name: 'Compact', description: '2×2 frosted info card' },
     { key: 'technical', name: 'Glass', description: 'Frosted glass card' },
+    { key: 'imprint', name: 'Imprint', description: 'Frameless text on photo' },
     { key: 'film', name: 'Film', description: 'Vintage style' },
   ];
 
@@ -109,6 +112,44 @@ export function TemplateSelector() {
               visible
             </p>
           </div>
+        </div>
+      )}
+
+      {selectedTemplate?.customDraw === 'imprint' && (
+        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
+          <label className="flex items-center justify-between cursor-pointer">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Invert text color
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Black text instead of white
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={imprintColor === 'black'}
+              onClick={() =>
+                setImprintColor(imprintColor === 'black' ? 'white' : 'black')
+              }
+              className={clsx(
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'dark:focus:ring-offset-gray-700',
+                imprintColor === 'black'
+                  ? 'bg-blue-600 dark:bg-blue-500'
+                  : 'bg-gray-300 dark:bg-gray-600'
+              )}
+            >
+              <span
+                className={clsx(
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  imprintColor === 'black' ? 'translate-x-6' : 'translate-x-1'
+                )}
+              />
+            </button>
+          </label>
         </div>
       )}
 
