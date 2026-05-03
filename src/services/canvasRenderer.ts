@@ -194,6 +194,9 @@ interface ImprintLayout {
   headlineGap: number;
   headlineHeight: number;
   makeLetterSpacing: string;
+  lensText: string | null;
+  lensFontSize: number;
+  lensOpacity: number;
   paramsText: string | null;
   paramsFontSize: number;
   paramsOpacity: number;
@@ -2159,6 +2162,7 @@ export class CanvasRenderer {
     const headlineGap = headlineFontSize * 0.3;
     const makeLetterSpacing = '0.04em';
 
+    const lensFontSize = Math.max(12, baseFontSize * 1.1);
     const paramsFontSize = Math.max(11, baseFontSize * 0.95);
     const locationFontSize = Math.max(11, baseFontSize * 0.82);
     const rowGap = baseFontSize * 0.5;
@@ -2182,10 +2186,12 @@ export class CanvasRenderer {
     ].filter((value): value is string => !!value);
     const paramsText = paramsParts.length > 0 ? paramsParts.join(' · ') : null;
 
+    const lensText = exifData.lens ?? null;
     const locationText = exifData.location ?? null;
 
     const blocks: number[] = [];
     if (makeText || modelText) blocks.push(headlineHeight);
+    if (lensText) blocks.push(lensFontSize);
     if (paramsText) blocks.push(paramsFontSize);
     if (locationText) blocks.push(locationFontSize);
     const contentHeight =
@@ -2206,6 +2212,9 @@ export class CanvasRenderer {
       headlineGap,
       headlineHeight,
       makeLetterSpacing,
+      lensText,
+      lensFontSize,
+      lensOpacity: 1,
       paramsText,
       paramsFontSize,
       paramsOpacity: 0.92,
@@ -2324,6 +2333,16 @@ export class CanvasRenderer {
       }
 
       cursorY += layout.headlineHeight + layout.rowGap;
+    }
+
+    if (layout.lensText) {
+      const baselineY = cursorY + layout.lensFontSize;
+      ctx.save();
+      ctx.globalAlpha = layout.lensOpacity;
+      ctx.font = `${layout.lensFontSize}px ${style.fontFamily}`;
+      ctx.fillText(layout.lensText, anchorX, baselineY);
+      ctx.restore();
+      cursorY += layout.lensFontSize + layout.rowGap;
     }
 
     if (layout.paramsText) {
