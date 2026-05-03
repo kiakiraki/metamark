@@ -180,6 +180,33 @@ let compactLayoutCache: {
   layout: CompactLayout;
 } | null = null;
 
+interface ImprintLayout {
+  padding: number;
+  height: number;
+  contentHeight: number;
+  rowGap: number;
+  baseFontSize: number;
+  makeText: string | null;
+  modelText: string | null;
+  headlineFontSize: number;
+  headlineWeightMake: number;
+  headlineWeightModel: number;
+  headlineGap: number;
+  headlineHeight: number;
+  makeLetterSpacing: string;
+  paramsText: string | null;
+  paramsFontSize: number;
+  paramsOpacity: number;
+  locationText: string | null;
+  locationFontSize: number;
+  locationOpacity: number;
+}
+
+let imprintLayoutCache: {
+  key: string;
+  layout: ImprintLayout;
+} | null = null;
+
 export class CanvasRenderer {
   static async render(options: RenderOptions): Promise<string> {
     const { canvas, image, template, exifData, settings } = options;
@@ -496,6 +523,11 @@ export class CanvasRenderer {
     if (template.customDraw === 'compact') {
       const layout = this.buildCompactLayout(template, exifData, scaleFactor);
       return layout.panelHeight;
+    }
+
+    if (template.customDraw === 'imprint') {
+      const layout = this.buildImprintLayout(template, exifData, scaleFactor);
+      return layout.height;
     }
 
     tempCtx.font = `${scaledFontSize}px ${template.style.fontFamily}`;
@@ -2109,6 +2141,232 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
+  private static buildImprintLayout(
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): ImprintLayout {
+    const cacheKey = JSON.stringify(['imprint', scaleFactor, exifData]);
+    if (imprintLayoutCache?.key === cacheKey) {
+      return imprintLayoutCache.layout;
+    }
+
+    const padding = template.style.padding * scaleFactor;
+    const baseFontSize = Math.max(12, template.style.fontSize * scaleFactor);
+
+    const headlineFontSize = Math.max(18, baseFontSize * 1.5);
+    const headlineHeight = headlineFontSize;
+    const headlineGap = headlineFontSize * 0.3;
+    const makeLetterSpacing = '0.04em';
+
+    const paramsFontSize = Math.max(11, baseFontSize * 0.95);
+    const locationFontSize = Math.max(11, baseFontSize * 0.82);
+    const rowGap = baseFontSize * 0.5;
+
+    const { make, model } = this.getCaptionCameraParts(exifData);
+    const makeText = make ? make.toUpperCase() : null;
+    const modelText = model;
+
+    const apertureText = exifData.aperture
+      ? exifData.aperture.replace(/^f\//i, 'ƒ/')
+      : null;
+    const dateText = exifData.dateTime
+      ? exifData.dateTime.replace(/\//g, '.')
+      : null;
+    const paramsParts = [
+      dateText,
+      apertureText,
+      exifData.shutterSpeed,
+      exifData.iso,
+      exifData.focalLength,
+    ].filter((value): value is string => !!value);
+    const paramsText = paramsParts.length > 0 ? paramsParts.join(' · ') : null;
+
+    const locationText = exifData.location ?? null;
+
+    const blocks: number[] = [];
+    if (makeText || modelText) blocks.push(headlineHeight);
+    if (paramsText) blocks.push(paramsFontSize);
+    if (locationText) blocks.push(locationFontSize);
+    const contentHeight =
+      blocks.reduce((sum, h) => sum + h, 0) +
+      Math.max(0, blocks.length - 1) * rowGap;
+
+    const layout: ImprintLayout = {
+      padding,
+      height: padding + contentHeight + padding,
+      contentHeight,
+      rowGap,
+      baseFontSize,
+      makeText,
+      modelText,
+      headlineFontSize,
+      headlineWeightMake: 600,
+      headlineWeightModel: 400,
+      headlineGap,
+      headlineHeight,
+      makeLetterSpacing,
+      paramsText,
+      paramsFontSize,
+      paramsOpacity: 0.92,
+      locationText,
+      locationFontSize,
+      locationOpacity: 0.78,
+    };
+    imprintLayoutCache = { key: cacheKey, layout };
+    return layout;
+  }
+
+  private static drawImprintTemplate(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number,
+    overlayPosition?: PositionPreset
+  ): void {
+    const { style, position } = template;
+    const scaledX = position.x;
+    const scaledY = position.y;
+    const scaledWidth = position.width * scaleFactor;
+
+    const layout = this.buildImprintLayout(template, exifData, scaleFactor);
+
+    const isRight =
+      overlayPosition === 'top-right' || overlayPosition === 'bottom-right';
+    const textAlign: CanvasTextAlign = isRight ? 'right' : 'left';
+    const anchorX = isRight
+      ? scaledX + scaledWidth - layout.padding
+      : scaledX + layout.padding;
+
+    // Shadow that contrasts with text color so the text reads on bright or dark photos.
+    const isLight = this.isLightTextColor(style.textColor);
+    const shadowColor = isLight
+      ? 'rgba(0, 0, 0, 0.7)'
+      : 'rgba(255, 255, 255, 0.75)';
+
+    ctx.save();
+    ctx.fillStyle = style.textColor;
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = textAlign;
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = Math.max(4, 6 * scaleFactor);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    let cursorY = scaledY + layout.padding;
+
+    if (layout.makeText || layout.modelText) {
+      const baselineY = cursorY + layout.headlineHeight;
+      const makePart = layout.makeText ?? '';
+      const modelPart = layout.modelText ?? '';
+      const makeFont = `${layout.headlineWeightMake} ${layout.headlineFontSize}px ${style.fontFamily}`;
+      const modelFont = `${layout.headlineWeightModel} ${layout.headlineFontSize}px ${style.fontFamily}`;
+
+      const measureWidth = (
+        text: string,
+        font: string,
+        letterSpacing?: string
+      ): number => {
+        ctx.save();
+        ctx.font = font;
+        if (letterSpacing) {
+          (
+            ctx as CanvasRenderingContext2D & { letterSpacing?: string }
+          ).letterSpacing = letterSpacing;
+        }
+        const width = ctx.measureText(text).width;
+        ctx.restore();
+        return width;
+      };
+
+      if (textAlign === 'left') {
+        let x = anchorX;
+        if (makePart) {
+          ctx.save();
+          ctx.font = makeFont;
+          (
+            ctx as CanvasRenderingContext2D & { letterSpacing?: string }
+          ).letterSpacing = layout.makeLetterSpacing;
+          ctx.fillText(makePart, x, baselineY);
+          ctx.restore();
+          const makeWidth = measureWidth(
+            makePart,
+            makeFont,
+            layout.makeLetterSpacing
+          );
+          x += makeWidth + (modelPart ? layout.headlineGap : 0);
+        }
+        if (modelPart) {
+          ctx.save();
+          ctx.font = modelFont;
+          ctx.fillText(modelPart, x, baselineY);
+          ctx.restore();
+        }
+      } else {
+        let x = anchorX;
+        if (modelPart) {
+          ctx.save();
+          ctx.font = modelFont;
+          ctx.fillText(modelPart, x, baselineY);
+          ctx.restore();
+          const modelWidth = measureWidth(modelPart, modelFont);
+          x -= modelWidth + (makePart ? layout.headlineGap : 0);
+        }
+        if (makePart) {
+          ctx.save();
+          ctx.font = makeFont;
+          (
+            ctx as CanvasRenderingContext2D & { letterSpacing?: string }
+          ).letterSpacing = layout.makeLetterSpacing;
+          ctx.fillText(makePart, x, baselineY);
+          ctx.restore();
+        }
+      }
+
+      cursorY += layout.headlineHeight + layout.rowGap;
+    }
+
+    if (layout.paramsText) {
+      const baselineY = cursorY + layout.paramsFontSize;
+      ctx.save();
+      ctx.globalAlpha = layout.paramsOpacity;
+      ctx.font = `${layout.paramsFontSize}px ${style.fontFamily}`;
+      ctx.fillText(layout.paramsText, anchorX, baselineY);
+      ctx.restore();
+      cursorY += layout.paramsFontSize + layout.rowGap;
+    }
+
+    if (layout.locationText) {
+      const baselineY = cursorY + layout.locationFontSize;
+      ctx.save();
+      ctx.globalAlpha = layout.locationOpacity;
+      ctx.font = `${layout.locationFontSize}px ${style.fontFamily}`;
+      ctx.fillText(layout.locationText, anchorX, baselineY);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // Heuristic: treat #fff/white as "light", everything else as dark.
+  // Used to pick a contrasting drop shadow for the imprint text.
+  private static isLightTextColor(color: string): boolean {
+    const trimmed = color.trim().toLowerCase();
+    if (trimmed === '#ffffff' || trimmed === '#fff' || trimmed === 'white') {
+      return true;
+    }
+    const hex = trimmed.match(/^#([0-9a-f]{6})$/);
+    if (hex) {
+      const value = parseInt(hex[1], 16);
+      const r = (value >> 16) & 0xff;
+      const g = (value >> 8) & 0xff;
+      const b = value & 0xff;
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance > 0.6;
+    }
+    return false;
+  }
+
   private static drawTemplate(
     ctx: CanvasRenderingContext2D,
     template: Template,
@@ -2142,6 +2400,17 @@ export class CanvasRenderer {
 
     if (template.customDraw === 'compact') {
       this.drawCompactTemplate(ctx, template, exifData, scaleFactor);
+      return;
+    }
+
+    if (template.customDraw === 'imprint') {
+      this.drawImprintTemplate(
+        ctx,
+        template,
+        exifData,
+        scaleFactor,
+        options?.overlayPosition
+      );
       return;
     }
 

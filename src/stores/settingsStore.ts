@@ -2,11 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CanvasSettings } from '@/types/canvas';
 
+export type ImprintColor = 'white' | 'black';
+
 interface SettingsState {
   canvasSettings: CanvasSettings;
   captionInvert: boolean;
+  imprintColor: ImprintColor;
   updateCanvasSettings: (settings: Partial<CanvasSettings>) => void;
   setCaptionInvert: (value: boolean) => void;
+  setImprintColor: (value: ImprintColor) => void;
   resetToDefaults: () => void;
 }
 
@@ -24,6 +28,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       canvasSettings: defaultCanvasSettings,
       captionInvert: false,
+      imprintColor: 'white',
 
       updateCanvasSettings: (settingsUpdate) =>
         set((state) => ({
@@ -32,14 +37,21 @@ export const useSettingsStore = create<SettingsState>()(
 
       setCaptionInvert: (value) => set({ captionInvert: value }),
 
+      setImprintColor: (value) => set({ imprintColor: value }),
+
       resetToDefaults: () =>
-        set({ canvasSettings: defaultCanvasSettings, captionInvert: false }),
+        set({
+          canvasSettings: defaultCanvasSettings,
+          captionInvert: false,
+          imprintColor: 'white',
+        }),
     }),
     {
       name: 'metamark-settings',
       partialize: (state) => ({
         canvasSettings: state.canvasSettings,
         captionInvert: state.captionInvert,
+        imprintColor: state.imprintColor,
       }),
     }
   )

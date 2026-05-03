@@ -13,6 +13,8 @@ export function TemplateSelector() {
   const selectTemplate = useTemplateStore((state) => state.selectTemplate);
   const captionInvert = useSettingsStore((state) => state.captionInvert);
   const setCaptionInvert = useSettingsStore((state) => state.setCaptionInvert);
+  const imprintColor = useSettingsStore((state) => state.imprintColor);
+  const setImprintColor = useSettingsStore((state) => state.setImprintColor);
 
   const templatePresets: {
     key: TemplatePreset;
@@ -22,6 +24,7 @@ export function TemplateSelector() {
     { key: 'caption', name: 'Caption', description: 'Black footer bar' },
     { key: 'compact', name: 'Compact', description: '2×2 frosted info card' },
     { key: 'technical', name: 'Glass', description: 'Frosted glass card' },
+    { key: 'imprint', name: 'Imprint', description: 'Frameless text on photo' },
     { key: 'film', name: 'Film', description: 'Vintage style' },
   ];
 
@@ -108,6 +111,56 @@ export function TemplateSelector() {
               Fields: {selectedTemplate.fields.filter((f) => f.visible).length}{' '}
               visible
             </p>
+          </div>
+        </div>
+      )}
+
+      {selectedTemplate?.customDraw === 'imprint' && (
+        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
+          <div className="space-y-2">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Text color
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Pick the color that reads best against your photo
+              </p>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Imprint text color"
+              className="grid grid-cols-2 gap-2"
+            >
+              {(['white', 'black'] as const).map((value) => {
+                const isActive = imprintColor === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => setImprintColor(value)}
+                    className={clsx(
+                      'flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors',
+                      'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-700',
+                      isActive
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200'
+                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+                    )}
+                  >
+                    <span
+                      className={clsx(
+                        'h-3 w-3 rounded-full border',
+                        value === 'white'
+                          ? 'bg-white border-gray-300'
+                          : 'bg-black border-gray-700'
+                      )}
+                    />
+                    {value === 'white' ? 'White' : 'Black'}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
