@@ -33,7 +33,7 @@ export function useEffectiveTemplate(): Template | null {
         ...selectedTemplate,
         style: {
           ...selectedTemplate.style,
-          backgroundColor: selectedTemplate.style.textColor,
+          backgroundColor: '#0d0b08',
           textColor: selectedTemplate.style.backgroundColor,
         },
       };
