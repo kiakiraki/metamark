@@ -41,7 +41,12 @@ export interface Template {
   positionOverride?: (isPortrait: boolean) => PositionPreset;
   textShadow?: boolean;
   rotateForPortrait?: boolean;
-  customDraw?: 'caption' | 'technical' | 'compact' | 'imprint';
+  customDraw?:
+    | 'caption'
+    | 'technical'
+    | 'compact'
+    | 'imprint'
+    | 'gallery-placard';
 }
 
 export interface TemplateField {
@@ -56,4 +61,5 @@ export type TemplatePreset =
   | 'technical'
   | 'compact'
   | 'caption'
-  | 'imprint';
+  | 'imprint'
+  | 'gallery-placard';

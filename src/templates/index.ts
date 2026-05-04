@@ -4,6 +4,7 @@ import { technicalTemplate } from './technical';
 import { compactTemplate } from './compact';
 import { captionTemplate } from './caption';
 import { imprintTemplate } from './imprint';
+import { galleryPlacardTemplate } from './galleryPlacard';
 
 // Only include available templates. Missing presets are treated as not available.
 export const templates: Partial<Record<TemplatePreset, Template>> = {
@@ -12,6 +13,7 @@ export const templates: Partial<Record<TemplatePreset, Template>> = {
   compact: compactTemplate,
   caption: captionTemplate,
   imprint: imprintTemplate,
+  'gallery-placard': galleryPlacardTemplate,
 };
 
 export {
@@ -20,4 +22,5 @@ export {
   compactTemplate,
   captionTemplate,
   imprintTemplate,
+  galleryPlacardTemplate,
 };

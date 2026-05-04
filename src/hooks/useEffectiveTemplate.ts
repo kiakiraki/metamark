@@ -6,6 +6,9 @@ import type { Template } from '@/types/template';
 export function useEffectiveTemplate(): Template | null {
   const selectedTemplate = useTemplateStore((state) => state.selectedTemplate);
   const captionInvert = useSettingsStore((state) => state.captionInvert);
+  const galleryPlacardInvert = useSettingsStore(
+    (state) => state.galleryPlacardInvert
+  );
   const imprintColor = useSettingsStore((state) => state.imprintColor);
 
   return useMemo(() => {
@@ -22,6 +25,20 @@ export function useEffectiveTemplate(): Template | null {
       };
     }
 
+    if (
+      selectedTemplate.customDraw === 'gallery-placard' &&
+      galleryPlacardInvert
+    ) {
+      return {
+        ...selectedTemplate,
+        style: {
+          ...selectedTemplate.style,
+          backgroundColor: selectedTemplate.style.textColor,
+          textColor: selectedTemplate.style.backgroundColor,
+        },
+      };
+    }
+
     if (selectedTemplate.customDraw === 'imprint') {
       return {
         ...selectedTemplate,
@@ -33,5 +50,5 @@ export function useEffectiveTemplate(): Template | null {
     }
 
     return selectedTemplate;
-  }, [selectedTemplate, captionInvert, imprintColor]);
+  }, [selectedTemplate, captionInvert, galleryPlacardInvert, imprintColor]);
 }
