@@ -210,6 +210,54 @@ let imprintLayoutCache: {
   layout: ImprintLayout;
 } | null = null;
 
+interface GalleryPlacardLayout {
+  height: number;
+  paddingX: number;
+  paddingY: number;
+  contentHeight: number;
+  stacked: boolean;
+  leftColumnWidth: number;
+  rightColumnWidth: number;
+  columnGap: number;
+  serifFamily: string;
+  sansFamily: string;
+  makeFontSize: number;
+  makeLetterSpacing: string;
+  modelFontSize: number;
+  modelLineHeight: number;
+  lensFontSize: number;
+  lensLineHeight: number;
+  lensLetterSpacing: string;
+  paramsFontSize: number;
+  paramsLineHeight: number;
+  metaFontSize: number;
+  metaLineHeight: number;
+  makeToModelGap: number;
+  modelToLensGap: number;
+  rightRowGap: number;
+  ruleGap: number;
+  ruleThickness: number;
+  ruleWidth: number;
+  dividerThickness: number;
+  makeText: string | null;
+  modelLines: string[];
+  lensLines: string[];
+  paramsLines: string[];
+  dateLines: string[];
+  locationLines: string[];
+  showRule: boolean;
+  leftHeight: number;
+  rightHeight: number;
+  interSectionGap: number;
+  secondaryAlpha: number;
+  dividerAlpha: number;
+}
+
+let galleryPlacardLayoutCache: {
+  key: string;
+  layout: GalleryPlacardLayout;
+} | null = null;
+
 export class CanvasRenderer {
   static async render(options: RenderOptions): Promise<string> {
     const { canvas, image, template, exifData, settings } = options;
@@ -530,6 +578,17 @@ export class CanvasRenderer {
 
     if (template.customDraw === 'imprint') {
       const layout = this.buildImprintLayout(template, exifData, scaleFactor);
+      return layout.height;
+    }
+
+    if (template.customDraw === 'gallery-placard') {
+      const layout = this.buildGalleryPlacardLayout(
+        template,
+        exifData,
+        scaleFactor,
+        availableWidth ?? template.position.width * scaleFactor,
+        tempCtx
+      );
       return layout.height;
     }
 
@@ -2367,6 +2426,447 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
+  private static buildGalleryPlacardExposureLine(
+    exifData: NormalizedExifData
+  ): string | null {
+    const aperture = exifData.aperture
+      ? exifData.aperture.replace(/^f\//i, 'ƒ/')
+      : null;
+    const iso = exifData.iso
+      ? /^iso\b/i.test(exifData.iso)
+        ? exifData.iso
+        : `ISO ${exifData.iso}`
+      : null;
+    const parts = [
+      exifData.focalLength,
+      aperture,
+      exifData.shutterSpeed,
+      iso,
+    ].filter((value): value is string => !!value);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
+  private static formatGalleryPlacardDate(value: string | null): string | null {
+    if (!value) return null;
+    const m = value.match(/(\d{4})[\/\-:.](\d{2})[\/\-:.](\d{2})/);
+    if (m) {
+      const [, yyyy, mm, dd] = m;
+      return `${yyyy}.${mm}.${dd}`;
+    }
+    return value;
+  }
+
+  private static buildGalleryPlacardLayout(
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number,
+    availableWidth: number,
+    ctx: CanvasRenderingContext2D
+  ): GalleryPlacardLayout {
+    const cacheKey = JSON.stringify([
+      'gallery-placard',
+      template.id,
+      scaleFactor,
+      availableWidth,
+      exifData,
+    ]);
+    if (galleryPlacardLayoutCache?.key === cacheKey) {
+      return galleryPlacardLayoutCache.layout;
+    }
+
+    const measureCtx = ctx;
+    const sansFamily = template.style.fontFamily;
+    // Pair the body sans with the first declared non-matching font as serif.
+    // Falls back to sans if no second family was provided.
+    const serifReq = template.fontRequirements?.find(
+      (req) => req.family !== sansFamily
+    );
+    const serifFamily = serifReq?.family ?? sansFamily;
+
+    const basePadding = template.style.padding * scaleFactor;
+    const baseFontSize = Math.max(12, template.style.fontSize * scaleFactor);
+
+    const stacked = availableWidth < 720;
+
+    // Trim horizontal padding for narrow placards so column widths stay legible
+    const paddingX = stacked ? Math.max(16, basePadding * 0.7) : basePadding;
+    const paddingY = stacked ? Math.max(20, basePadding * 0.75) : basePadding;
+
+    const textAreaWidth = Math.max(0, availableWidth - paddingX * 2);
+    const columnGap = stacked ? 0 : Math.max(24, baseFontSize * 1.6);
+    // Sample favours a smaller left column (camera info) and a wider right
+    // column for the exposure/date/location list.
+    const leftColumnWidth = stacked
+      ? textAreaWidth
+      : Math.max(0, Math.floor((textAreaWidth - columnGap) * 0.42));
+    const rightColumnWidth = stacked
+      ? textAreaWidth
+      : Math.max(0, textAreaWidth - leftColumnWidth - columnGap);
+
+    const makeFontSize = Math.max(18, baseFontSize * 1.7);
+    const modelFontSize = Math.max(18, baseFontSize * 1.7);
+    const lensFontSize = Math.max(11, baseFontSize * 0.85);
+    // Right column unifies params/date/location at the same size,
+    // matching the editorial balance in the reference.
+    const paramsFontSize = Math.max(12, baseFontSize * 1.0);
+    const metaFontSize = paramsFontSize;
+
+    const modelLineHeight = modelFontSize * 1.15;
+    const lensLineHeight = lensFontSize * 1.4;
+    const paramsLineHeight = paramsFontSize * 1.4;
+    const metaLineHeight = metaFontSize * 1.4;
+
+    const makeLetterSpacing = '0.04em';
+    const lensLetterSpacing = '0.04em';
+
+    const makeToModelGap = makeFontSize * 0.18;
+    const modelToLensGap = modelFontSize * 0.5;
+    const rightRowGap = paramsFontSize * 0.7;
+    const ruleGap = paramsFontSize * 0.7;
+    const ruleThickness = Math.max(1, scaleFactor);
+    const dividerThickness = Math.max(1, scaleFactor);
+
+    const { make, model } = this.getCaptionCameraParts(exifData);
+    const makeText = make ? make.toUpperCase() : null;
+
+    measureCtx.font = `${modelFontSize}px ${serifFamily}`;
+    const modelLines = model
+      ? this.wrapText(measureCtx, model, leftColumnWidth)
+      : [];
+
+    measureCtx.font = `${lensFontSize}px ${sansFamily}`;
+    const lensLines = exifData.lens
+      ? this.wrapText(measureCtx, exifData.lens, leftColumnWidth)
+      : [];
+
+    const paramsText = this.buildGalleryPlacardExposureLine(exifData);
+    measureCtx.font = `${paramsFontSize}px ${sansFamily}`;
+    const paramsLines = paramsText
+      ? this.wrapText(measureCtx, paramsText, rightColumnWidth)
+      : [];
+
+    const dateText = this.formatGalleryPlacardDate(exifData.dateTime);
+    measureCtx.font = `${metaFontSize}px ${sansFamily}`;
+    const dateLines = dateText
+      ? this.wrapText(measureCtx, dateText, rightColumnWidth)
+      : [];
+    const locationText = exifData.location ?? null;
+    const locationLines = locationText
+      ? this.wrapText(measureCtx, locationText, rightColumnWidth)
+      : [];
+
+    const ruleWidth =
+      rightColumnWidth > 0
+        ? Math.min(rightColumnWidth, Math.max(80, rightColumnWidth * 0.55))
+        : 0;
+    const showRule =
+      paramsLines.length > 0 &&
+      (dateLines.length > 0 || locationLines.length > 0);
+
+    // Left column height
+    let leftHeight = 0;
+    if (makeText) {
+      leftHeight += makeFontSize;
+      if (modelLines.length > 0 || lensLines.length > 0) {
+        leftHeight += makeToModelGap;
+      }
+    }
+    if (modelLines.length > 0) {
+      leftHeight += modelFontSize + (modelLines.length - 1) * modelLineHeight;
+      if (lensLines.length > 0) {
+        leftHeight += modelToLensGap;
+      }
+    }
+    if (lensLines.length > 0) {
+      leftHeight += lensFontSize + (lensLines.length - 1) * lensLineHeight;
+    }
+
+    // Right column height (matches drawing logic exactly)
+    let rightHeight = 0;
+    if (paramsLines.length > 0) {
+      rightHeight +=
+        paramsFontSize + (paramsLines.length - 1) * paramsLineHeight;
+      if (showRule) {
+        rightHeight += ruleGap + ruleThickness;
+        if (dateLines.length > 0 || locationLines.length > 0) {
+          rightHeight += ruleGap;
+        }
+      } else if (dateLines.length > 0 || locationLines.length > 0) {
+        rightHeight += rightRowGap;
+      }
+    }
+    if (dateLines.length > 0) {
+      rightHeight += metaFontSize + (dateLines.length - 1) * metaLineHeight;
+      if (locationLines.length > 0) rightHeight += rightRowGap;
+    }
+    if (locationLines.length > 0) {
+      rightHeight += metaFontSize + (locationLines.length - 1) * metaLineHeight;
+    }
+
+    const interSectionGap =
+      stacked && leftHeight > 0 && rightHeight > 0 ? rightRowGap * 1.4 : 0;
+    const contentHeight = stacked
+      ? leftHeight + interSectionGap + rightHeight
+      : Math.max(leftHeight, rightHeight);
+
+    const layout: GalleryPlacardLayout = {
+      height: paddingY + contentHeight + paddingY,
+      paddingX,
+      paddingY,
+      contentHeight,
+      stacked,
+      leftColumnWidth,
+      rightColumnWidth,
+      columnGap,
+      serifFamily,
+      sansFamily,
+      makeFontSize,
+      makeLetterSpacing,
+      modelFontSize,
+      modelLineHeight,
+      lensFontSize,
+      lensLineHeight,
+      lensLetterSpacing,
+      paramsFontSize,
+      paramsLineHeight,
+      metaFontSize,
+      metaLineHeight,
+      makeToModelGap,
+      modelToLensGap,
+      rightRowGap,
+      ruleGap,
+      ruleThickness,
+      ruleWidth,
+      dividerThickness,
+      makeText,
+      modelLines,
+      lensLines,
+      paramsLines,
+      dateLines,
+      locationLines,
+      showRule,
+      leftHeight,
+      rightHeight,
+      interSectionGap,
+      secondaryAlpha: 0.92,
+      dividerAlpha: 0.28,
+    };
+    galleryPlacardLayoutCache = { key: cacheKey, layout };
+    return layout;
+  }
+
+  private static drawGalleryPlacardLeftColumn(
+    ctx: CanvasRenderingContext2D,
+    layout: GalleryPlacardLayout,
+    x: number,
+    topY: number
+  ): void {
+    let cursorY = topY;
+    ctx.save();
+    ctx.textAlign = 'left';
+
+    if (layout.makeText) {
+      ctx.save();
+      ctx.font = `600 ${layout.makeFontSize}px ${layout.serifFamily}`;
+      (
+        ctx as CanvasRenderingContext2D & { letterSpacing?: string }
+      ).letterSpacing = layout.makeLetterSpacing;
+      ctx.fillText(layout.makeText, x, cursorY + layout.makeFontSize);
+      ctx.restore();
+      cursorY += layout.makeFontSize;
+      if (layout.modelLines.length > 0 || layout.lensLines.length > 0) {
+        cursorY += layout.makeToModelGap;
+      }
+    }
+
+    if (layout.modelLines.length > 0) {
+      ctx.save();
+      ctx.font = `${layout.modelFontSize}px ${layout.serifFamily}`;
+      let y = cursorY + layout.modelFontSize;
+      for (const line of layout.modelLines) {
+        ctx.fillText(line, x, y);
+        y += layout.modelLineHeight;
+      }
+      ctx.restore();
+      cursorY +=
+        layout.modelFontSize +
+        (layout.modelLines.length - 1) * layout.modelLineHeight;
+      if (layout.lensLines.length > 0) cursorY += layout.modelToLensGap;
+    }
+
+    if (layout.lensLines.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = layout.secondaryAlpha;
+      ctx.font = `${layout.lensFontSize}px ${layout.sansFamily}`;
+      (
+        ctx as CanvasRenderingContext2D & { letterSpacing?: string }
+      ).letterSpacing = layout.lensLetterSpacing;
+      let y = cursorY + layout.lensFontSize;
+      for (const line of layout.lensLines) {
+        ctx.fillText(line, x, y);
+        y += layout.lensLineHeight;
+      }
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  private static drawGalleryPlacardRightColumn(
+    ctx: CanvasRenderingContext2D,
+    layout: GalleryPlacardLayout,
+    x: number,
+    topY: number
+  ): void {
+    let cursorY = topY;
+    ctx.save();
+    ctx.textAlign = 'left';
+
+    if (layout.paramsLines.length > 0) {
+      ctx.save();
+      ctx.font = `${layout.paramsFontSize}px ${layout.sansFamily}`;
+      let y = cursorY + layout.paramsFontSize;
+      for (const line of layout.paramsLines) {
+        ctx.fillText(line, x, y);
+        y += layout.paramsLineHeight;
+      }
+      ctx.restore();
+      cursorY +=
+        layout.paramsFontSize +
+        (layout.paramsLines.length - 1) * layout.paramsLineHeight;
+
+      if (layout.showRule) {
+        cursorY += layout.ruleGap;
+        ctx.save();
+        ctx.globalAlpha = layout.dividerAlpha;
+        ctx.fillRect(
+          x,
+          Math.round(cursorY),
+          layout.ruleWidth,
+          layout.ruleThickness
+        );
+        ctx.restore();
+        cursorY += layout.ruleThickness;
+        if (layout.dateLines.length > 0 || layout.locationLines.length > 0) {
+          cursorY += layout.ruleGap;
+        }
+      } else if (
+        layout.dateLines.length > 0 ||
+        layout.locationLines.length > 0
+      ) {
+        cursorY += layout.rightRowGap;
+      }
+    }
+
+    if (layout.dateLines.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = layout.secondaryAlpha;
+      ctx.font = `${layout.metaFontSize}px ${layout.sansFamily}`;
+      let y = cursorY + layout.metaFontSize;
+      for (const line of layout.dateLines) {
+        ctx.fillText(line, x, y);
+        y += layout.metaLineHeight;
+      }
+      ctx.restore();
+      cursorY +=
+        layout.metaFontSize +
+        (layout.dateLines.length - 1) * layout.metaLineHeight;
+      if (layout.locationLines.length > 0) cursorY += layout.rightRowGap;
+    }
+
+    if (layout.locationLines.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = layout.secondaryAlpha;
+      ctx.font = `${layout.metaFontSize}px ${layout.sansFamily}`;
+      let y = cursorY + layout.metaFontSize;
+      for (const line of layout.locationLines) {
+        ctx.fillText(line, x, y);
+        y += layout.metaLineHeight;
+      }
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  private static drawGalleryPlacardTemplate(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number
+  ): void {
+    const { style, position } = template;
+    const scaledX = position.x;
+    const scaledY = position.y;
+    const scaledWidth = position.width * scaleFactor;
+
+    const layout = this.buildGalleryPlacardLayout(
+      template,
+      exifData,
+      scaleFactor,
+      scaledWidth,
+      ctx
+    );
+
+    // Background — flat warm ivory rectangle, no rounded corners
+    ctx.save();
+    ctx.globalAlpha = style.opacity;
+    ctx.fillStyle = style.backgroundColor;
+    ctx.fillRect(scaledX, scaledY, scaledWidth, layout.height);
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = style.textColor;
+    ctx.textBaseline = 'alphabetic';
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    const contentTop = scaledY + (layout.height - layout.contentHeight) / 2;
+    const leftX = scaledX + layout.paddingX;
+
+    if (layout.stacked) {
+      let cursorY = contentTop;
+      this.drawGalleryPlacardLeftColumn(ctx, layout, leftX, cursorY);
+      cursorY += layout.leftHeight;
+      if (layout.leftHeight > 0 && layout.rightHeight > 0) {
+        cursorY += layout.interSectionGap;
+      }
+      this.drawGalleryPlacardRightColumn(ctx, layout, leftX, cursorY);
+    } else {
+      // Vertical hairline divider between columns
+      if (layout.contentHeight > 0 && layout.rightColumnWidth > 0) {
+        const dividerX =
+          scaledX +
+          layout.paddingX +
+          layout.leftColumnWidth +
+          layout.columnGap / 2;
+        ctx.save();
+        ctx.globalAlpha = layout.dividerAlpha;
+        ctx.fillRect(
+          Math.round(dividerX - layout.dividerThickness / 2),
+          contentTop,
+          layout.dividerThickness,
+          layout.contentHeight
+        );
+        ctx.restore();
+      }
+
+      const leftTop =
+        contentTop + (layout.contentHeight - layout.leftHeight) / 2;
+      this.drawGalleryPlacardLeftColumn(ctx, layout, leftX, leftTop);
+
+      const rightX =
+        scaledX + layout.paddingX + layout.leftColumnWidth + layout.columnGap;
+      const rightTop =
+        contentTop + (layout.contentHeight - layout.rightHeight) / 2;
+      this.drawGalleryPlacardRightColumn(ctx, layout, rightX, rightTop);
+    }
+
+    ctx.restore();
+  }
+
   // Heuristic: treat #fff/white as "light", everything else as dark.
   // Used to pick a contrasting drop shadow for the imprint text.
   private static isLightTextColor(color: string): boolean {
@@ -2430,6 +2930,11 @@ export class CanvasRenderer {
         scaleFactor,
         options?.overlayPosition
       );
+      return;
+    }
+
+    if (template.customDraw === 'gallery-placard') {
+      this.drawGalleryPlacardTemplate(ctx, template, exifData, scaleFactor);
       return;
     }
 

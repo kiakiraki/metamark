@@ -7,9 +7,11 @@ export type ImprintColor = 'white' | 'black';
 interface SettingsState {
   canvasSettings: CanvasSettings;
   captionInvert: boolean;
+  galleryPlacardInvert: boolean;
   imprintColor: ImprintColor;
   updateCanvasSettings: (settings: Partial<CanvasSettings>) => void;
   setCaptionInvert: (value: boolean) => void;
+  setGalleryPlacardInvert: (value: boolean) => void;
   setImprintColor: (value: ImprintColor) => void;
   resetToDefaults: () => void;
 }
@@ -28,6 +30,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       canvasSettings: defaultCanvasSettings,
       captionInvert: false,
+      galleryPlacardInvert: false,
       imprintColor: 'white',
 
       updateCanvasSettings: (settingsUpdate) =>
@@ -37,12 +40,15 @@ export const useSettingsStore = create<SettingsState>()(
 
       setCaptionInvert: (value) => set({ captionInvert: value }),
 
+      setGalleryPlacardInvert: (value) => set({ galleryPlacardInvert: value }),
+
       setImprintColor: (value) => set({ imprintColor: value }),
 
       resetToDefaults: () =>
         set({
           canvasSettings: defaultCanvasSettings,
           captionInvert: false,
+          galleryPlacardInvert: false,
           imprintColor: 'white',
         }),
     }),
@@ -51,6 +57,7 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (state) => ({
         canvasSettings: state.canvasSettings,
         captionInvert: state.captionInvert,
+        galleryPlacardInvert: state.galleryPlacardInvert,
         imprintColor: state.imprintColor,
       }),
     }
