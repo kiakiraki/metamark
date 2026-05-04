@@ -4,7 +4,7 @@ import { ImageProcessor } from '@/services/imageProcessor';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import type { NormalizedExifData } from '@/types/exif';
 import type { ProcessedImage } from '@/types/image';
-import type { Template } from '@/types/template';
+import type { PositionPreset, Template } from '@/types/template';
 import { getDisplayBounds, useResponsiveCanvas } from './useResponsiveCanvas';
 import { useEffectiveExifData } from './useEffectiveExifData';
 import { useEffectiveTemplate } from './useEffectiveTemplate';
@@ -24,7 +24,8 @@ function computePreviewRenderSize(
   imageWidth: number,
   imageHeight: number,
   template: Template,
-  exifData: NormalizedExifData
+  exifData: NormalizedExifData,
+  overlayPosition: PositionPreset
 ): { width: number; height: number } {
   const { width: fullW, height: fullH } = CanvasRenderer.calculateOptimalSize(
     imageWidth,
@@ -34,10 +35,17 @@ function computePreviewRenderSize(
     template,
     exifData,
     fullW,
-    fullH
+    fullH,
+    overlayPosition
   );
+  const sidePad = CanvasRenderer.estimateGalleryPlacardSidePadding(
+    template,
+    fullW,
+    overlayPosition
+  );
+  const totalFullW = fullW + sidePad.leftPad + sidePad.rightPad;
   const totalFullH = fullH + bpFull;
-  const fullAspect = fullW / totalFullH;
+  const fullAspect = totalFullW / totalFullH;
 
   const { maxDisplayWidth, maxDisplayHeight } = getDisplayBounds();
   let displayCanvasW: number;
@@ -50,12 +58,13 @@ function computePreviewRenderSize(
     displayCanvasW = displayCanvasH * fullAspect;
   }
 
-  // settings.width/height represent the image area (without bottom padding);
-  // render() re-adds the padding internally. Convert from full-canvas display
-  // size back to image-area display size.
-  const imageAreaRatio = totalFullH > 0 ? fullH / totalFullH : 1;
-  const displayBaseW = displayCanvasW;
-  const displayBaseH = displayCanvasH * imageAreaRatio;
+  // settings.width/height represent the image area (without bottom/side
+  // padding); render() re-adds the padding internally. Convert from full-canvas
+  // display size back to image-area display size.
+  const widthRatio = totalFullW > 0 ? fullW / totalFullW : 1;
+  const heightRatio = totalFullH > 0 ? fullH / totalFullH : 1;
+  const displayBaseW = displayCanvasW * widthRatio;
+  const displayBaseH = displayCanvasH * heightRatio;
 
   return {
     width: Math.max(1, Math.round(displayBaseW * PREVIEW_OVERSAMPLE)),
@@ -104,7 +113,8 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
             currentImage.width,
             currentImage.height,
             selectedTemplate,
-            exifData
+            exifData,
+            canvasSettings.overlayPosition
           );
 
         await CanvasRenderer.render({

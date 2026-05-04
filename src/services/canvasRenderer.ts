@@ -210,6 +210,9 @@ let imprintLayoutCache: {
   layout: ImprintLayout;
 } | null = null;
 
+type GalleryPlacardMode = 'bottom' | 'left' | 'right' | 'split';
+type GalleryPlacardSection = 'all' | 'left-only' | 'right-only';
+
 interface GalleryPlacardLayout {
   height: number;
   paddingX: number;
@@ -275,7 +278,32 @@ export class CanvasRenderer {
     const baseHeight = settings.height;
     const scaleFactor = Math.min(baseWidth, baseHeight) / 1000; // Base scale for 1000px
     const isBottomPadding = template.layout === 'bottom-padding';
-    const bottomPaddingHeight = isBottomPadding
+    const galleryPlacardMode = this.resolveGalleryPlacardMode(
+      template,
+      settings.overlayPosition
+    );
+    const isGalleryPlacardSide =
+      galleryPlacardMode === 'left' ||
+      galleryPlacardMode === 'right' ||
+      galleryPlacardMode === 'split';
+    const galleryLeftPad = isGalleryPlacardSide
+      ? galleryPlacardMode === 'left' || galleryPlacardMode === 'split'
+        ? this.getGalleryPlacardSidePanelWidth(
+            baseWidth,
+            galleryPlacardMode === 'split'
+          )
+        : 0
+      : 0;
+    const galleryRightPad = isGalleryPlacardSide
+      ? galleryPlacardMode === 'right' || galleryPlacardMode === 'split'
+        ? this.getGalleryPlacardSidePanelWidth(
+            baseWidth,
+            galleryPlacardMode === 'split'
+          )
+        : 0
+      : 0;
+    const useStandardBottomPadding = isBottomPadding && !isGalleryPlacardSide;
+    const bottomPaddingHeight = useStandardBottomPadding
       ? this.calculateDynamicTemplateHeight(
           template,
           exifData,
@@ -283,7 +311,7 @@ export class CanvasRenderer {
           baseWidth
         )
       : 0;
-    const canvasWidth = baseWidth;
+    const canvasWidth = baseWidth + galleryLeftPad + galleryRightPad;
     const canvasHeight = baseHeight + bottomPaddingHeight;
 
     // Set actual size in memory (scaled for device pixel ratio)
@@ -302,7 +330,12 @@ export class CanvasRenderer {
 
     let drawWidth, drawHeight, drawX, drawY;
 
-    if (isBottomPadding) {
+    if (isGalleryPlacardSide) {
+      drawWidth = baseWidth;
+      drawHeight = baseHeight;
+      drawX = galleryLeftPad;
+      drawY = 0;
+    } else if (isBottomPadding) {
       drawWidth = baseWidth;
       drawHeight = baseHeight;
       drawX = 0;
@@ -380,25 +413,58 @@ export class CanvasRenderer {
         ...settings,
         overlayPosition: template.positionOverride(isPortraitImage),
       };
-    } else if (isBottomPadding) {
+    } else if (useStandardBottomPadding) {
       effectiveSettings = { ...settings, overlayPosition: 'bottom-left' };
     }
 
-    const dynamicTemplate = this.calculateDynamicPosition(
-      template,
-      effectiveSettings,
-      canvasWidth,
-      canvasHeight,
-      exifData,
-      { drawX, drawY, drawWidth, drawHeight },
-      scaleFactor
-    );
+    if (isGalleryPlacardSide) {
+      if (galleryLeftPad > 0) {
+        const leftSections: GalleryPlacardSection =
+          galleryPlacardMode === 'split' ? 'left-only' : 'all';
+        this.drawGalleryPlacardPanel(
+          ctx,
+          template,
+          exifData,
+          scaleFactor,
+          0,
+          0,
+          galleryLeftPad,
+          baseHeight,
+          leftSections
+        );
+      }
+      if (galleryRightPad > 0) {
+        const rightSections: GalleryPlacardSection =
+          galleryPlacardMode === 'split' ? 'right-only' : 'all';
+        this.drawGalleryPlacardPanel(
+          ctx,
+          template,
+          exifData,
+          scaleFactor,
+          galleryLeftPad + baseWidth,
+          0,
+          galleryRightPad,
+          baseHeight,
+          rightSections
+        );
+      }
+    } else {
+      const dynamicTemplate = this.calculateDynamicPosition(
+        template,
+        effectiveSettings,
+        canvasWidth,
+        canvasHeight,
+        exifData,
+        { drawX, drawY, drawWidth, drawHeight },
+        scaleFactor
+      );
 
-    // Draw template overlay with scaling
-    this.drawTemplate(ctx, dynamicTemplate, exifData, scaleFactor, {
-      imageIsPortrait: isPortraitImage,
-      overlayPosition: effectiveSettings.overlayPosition,
-    });
+      // Draw template overlay with scaling
+      this.drawTemplate(ctx, dynamicTemplate, exifData, scaleFactor, {
+        imageIsPortrait: isPortraitImage,
+        overlayPosition: effectiveSettings.overlayPosition,
+      });
+    }
 
     // Return as data URL
     return canvas.toDataURL(
@@ -2426,6 +2492,36 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
+  private static resolveGalleryPlacardMode(
+    template: Template,
+    overlayPosition: PositionPreset
+  ): GalleryPlacardMode | null {
+    if (template.customDraw !== 'gallery-placard') return null;
+    switch (overlayPosition) {
+      case 'top-left':
+        return 'left';
+      case 'top-right':
+        return 'right';
+      case 'bottom-right':
+        return 'split';
+      case 'bottom-left':
+      default:
+        return 'bottom';
+    }
+  }
+
+  private static getGalleryPlacardSidePanelWidth(
+    baseWidth: number,
+    isSplit: boolean
+  ): number {
+    const factor = isSplit ? 0.22 : 0.3;
+    const minWidth = isSplit ? 200 : 240;
+    const maxWidth = baseWidth * (isSplit ? 0.32 : 0.45);
+    return Math.round(
+      Math.max(minWidth, Math.min(maxWidth, baseWidth * factor))
+    );
+  }
+
   private static buildGalleryPlacardExposureLine(
     exifData: NormalizedExifData
   ): string | null {
@@ -2461,14 +2557,22 @@ export class CanvasRenderer {
     exifData: NormalizedExifData,
     scaleFactor: number,
     availableWidth: number,
-    ctx: CanvasRenderingContext2D
+    ctx: CanvasRenderingContext2D,
+    options?: { forceStacked?: boolean; sections?: GalleryPlacardSection }
   ): GalleryPlacardLayout {
+    const sections: GalleryPlacardSection = options?.sections ?? 'all';
+    const includeLeft = sections === 'all' || sections === 'left-only';
+    const includeRight = sections === 'all' || sections === 'right-only';
+    const forceStacked = options?.forceStacked ?? false;
+
     const cacheKey = JSON.stringify([
       'gallery-placard',
       template.id,
       scaleFactor,
       availableWidth,
       exifData,
+      sections,
+      forceStacked,
     ]);
     if (galleryPlacardLayoutCache?.key === cacheKey) {
       return galleryPlacardLayoutCache.layout;
@@ -2486,22 +2590,40 @@ export class CanvasRenderer {
     const basePadding = template.style.padding * scaleFactor;
     const baseFontSize = Math.max(12, template.style.fontSize * scaleFactor);
 
-    const stacked = availableWidth < 720;
+    const stacked = forceStacked || availableWidth < 720;
 
     // Trim horizontal padding for narrow placards so column widths stay legible
     const paddingX = stacked ? Math.max(16, basePadding * 0.7) : basePadding;
     const paddingY = stacked ? Math.max(20, basePadding * 0.75) : basePadding;
 
     const textAreaWidth = Math.max(0, availableWidth - paddingX * 2);
-    const columnGap = stacked ? 0 : Math.max(24, baseFontSize * 1.6);
+    const singleSection = sections !== 'all';
+    const columnGap =
+      stacked || singleSection ? 0 : Math.max(24, baseFontSize * 1.6);
     // Sample favours a smaller left column (camera info) and a wider right
-    // column for the exposure/date/location list.
-    const leftColumnWidth = stacked
-      ? textAreaWidth
-      : Math.max(0, Math.floor((textAreaWidth - columnGap) * 0.42));
-    const rightColumnWidth = stacked
-      ? textAreaWidth
-      : Math.max(0, textAreaWidth - leftColumnWidth - columnGap);
+    // column for the exposure/date/location list. When only one section is
+    // rendered, that section claims the full text area.
+    let leftColumnWidth: number;
+    let rightColumnWidth: number;
+    if (sections === 'left-only') {
+      leftColumnWidth = textAreaWidth;
+      rightColumnWidth = 0;
+    } else if (sections === 'right-only') {
+      leftColumnWidth = 0;
+      rightColumnWidth = textAreaWidth;
+    } else if (stacked) {
+      leftColumnWidth = textAreaWidth;
+      rightColumnWidth = textAreaWidth;
+    } else {
+      leftColumnWidth = Math.max(
+        0,
+        Math.floor((textAreaWidth - columnGap) * 0.42)
+      );
+      rightColumnWidth = Math.max(
+        0,
+        textAreaWidth - leftColumnWidth - columnGap
+      );
+    }
 
     const makeFontSize = Math.max(18, baseFontSize * 1.7);
     const modelFontSize = Math.max(18, baseFontSize * 1.7);
@@ -2527,30 +2649,36 @@ export class CanvasRenderer {
     const dividerThickness = Math.max(1, scaleFactor);
 
     const { make, model } = this.getCaptionCameraParts(exifData);
-    const makeText = make ? make.toUpperCase() : null;
+    const makeText = includeLeft && make ? make.toUpperCase() : null;
 
     measureCtx.font = `${modelFontSize}px ${serifFamily}`;
-    const modelLines = model
-      ? this.wrapText(measureCtx, model, leftColumnWidth)
-      : [];
+    const modelLines =
+      includeLeft && model
+        ? this.wrapText(measureCtx, model, leftColumnWidth)
+        : [];
 
     measureCtx.font = `${lensFontSize}px ${sansFamily}`;
-    const lensLines = exifData.lens
-      ? this.wrapText(measureCtx, exifData.lens, leftColumnWidth)
-      : [];
+    const lensLines =
+      includeLeft && exifData.lens
+        ? this.wrapText(measureCtx, exifData.lens, leftColumnWidth)
+        : [];
 
-    const paramsText = this.buildGalleryPlacardExposureLine(exifData);
+    const paramsText = includeRight
+      ? this.buildGalleryPlacardExposureLine(exifData)
+      : null;
     measureCtx.font = `${paramsFontSize}px ${sansFamily}`;
     const paramsLines = paramsText
       ? this.wrapText(measureCtx, paramsText, rightColumnWidth)
       : [];
 
-    const dateText = this.formatGalleryPlacardDate(exifData.dateTime);
+    const dateText = includeRight
+      ? this.formatGalleryPlacardDate(exifData.dateTime)
+      : null;
     measureCtx.font = `${metaFontSize}px ${sansFamily}`;
     const dateLines = dateText
       ? this.wrapText(measureCtx, dateText, rightColumnWidth)
       : [];
-    const locationText = exifData.location ?? null;
+    const locationText = includeRight ? (exifData.location ?? null) : null;
     const locationLines = locationText
       ? this.wrapText(measureCtx, locationText, rightColumnWidth)
       : [];
@@ -2784,6 +2912,65 @@ export class CanvasRenderer {
         y += layout.metaLineHeight;
       }
       ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  private static drawGalleryPlacardPanel(
+    ctx: CanvasRenderingContext2D,
+    template: Template,
+    exifData: NormalizedExifData,
+    scaleFactor: number,
+    panelX: number,
+    panelY: number,
+    panelWidth: number,
+    panelHeight: number,
+    sections: GalleryPlacardSection
+  ): void {
+    if (panelWidth <= 0 || panelHeight <= 0) return;
+
+    const { style } = template;
+    const layout = this.buildGalleryPlacardLayout(
+      template,
+      exifData,
+      scaleFactor,
+      panelWidth,
+      ctx,
+      { forceStacked: true, sections }
+    );
+
+    ctx.save();
+    ctx.globalAlpha = style.opacity;
+    ctx.fillStyle = style.backgroundColor;
+    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = style.textColor;
+    ctx.textBaseline = 'alphabetic';
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    const contentTop = panelY + (panelHeight - layout.contentHeight) / 2;
+    const leftX = panelX + layout.paddingX;
+
+    let cursorY = contentTop;
+    if (sections !== 'right-only') {
+      this.drawGalleryPlacardLeftColumn(ctx, layout, leftX, cursorY);
+      cursorY += layout.leftHeight;
+      if (
+        sections === 'all' &&
+        layout.leftHeight > 0 &&
+        layout.rightHeight > 0
+      ) {
+        cursorY += layout.interSectionGap;
+      }
+    }
+    if (sections !== 'left-only') {
+      this.drawGalleryPlacardRightColumn(ctx, layout, leftX, cursorY);
     }
 
     ctx.restore();
@@ -3092,9 +3279,21 @@ export class CanvasRenderer {
     template: Template,
     exifData: NormalizedExifData,
     baseWidth: number,
-    baseHeight: number
+    baseHeight: number,
+    overlayPosition: PositionPreset = 'bottom-left'
   ): number {
     if (template.layout !== 'bottom-padding') return 0;
+    const galleryMode = this.resolveGalleryPlacardMode(
+      template,
+      overlayPosition
+    );
+    if (
+      galleryMode === 'left' ||
+      galleryMode === 'right' ||
+      galleryMode === 'split'
+    ) {
+      return 0;
+    }
     const scaleFactor = Math.min(baseWidth, baseHeight) / 1000;
     return this.calculateDynamicTemplateHeight(
       template,
@@ -3102,6 +3301,24 @@ export class CanvasRenderer {
       scaleFactor,
       baseWidth
     );
+  }
+
+  // Side padding contributed by the gallery-placard template when its overlay
+  // position selects a side or split mode. Mirrors the canvas extension done
+  // inside render(), so the preview hook can size its canvas correctly.
+  static estimateGalleryPlacardSidePadding(
+    template: Template,
+    baseWidth: number,
+    overlayPosition: PositionPreset
+  ): { leftPad: number; rightPad: number } {
+    const mode = this.resolveGalleryPlacardMode(template, overlayPosition);
+    if (!mode || mode === 'bottom') return { leftPad: 0, rightPad: 0 };
+    const isSplit = mode === 'split';
+    const width = this.getGalleryPlacardSidePanelWidth(baseWidth, isSplit);
+    return {
+      leftPad: mode === 'left' || mode === 'split' ? width : 0,
+      rightPad: mode === 'right' || mode === 'split' ? width : 0,
+    };
   }
 
   // Half-step (pyramid) downsample: keep halving the source onto an
