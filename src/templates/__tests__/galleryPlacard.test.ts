@@ -89,4 +89,54 @@ describe('galleryPlacardTemplate', () => {
       )
     ).not.toThrow();
   });
+
+  it('returns no side padding for the bottom-left default position', () => {
+    const pad = CanvasRenderer.estimateGalleryPlacardSidePadding(
+      galleryPlacardTemplate,
+      1200,
+      'bottom-left'
+    );
+    expect(pad).toEqual({ leftPad: 0, rightPad: 0 });
+  });
+
+  it('reports left-side padding only when overlay position is top-left', () => {
+    const pad = CanvasRenderer.estimateGalleryPlacardSidePadding(
+      galleryPlacardTemplate,
+      1200,
+      'top-left'
+    );
+    expect(pad.leftPad).toBeGreaterThan(0);
+    expect(pad.rightPad).toBe(0);
+  });
+
+  it('reports right-side padding only when overlay position is top-right', () => {
+    const pad = CanvasRenderer.estimateGalleryPlacardSidePadding(
+      galleryPlacardTemplate,
+      1200,
+      'top-right'
+    );
+    expect(pad.leftPad).toBe(0);
+    expect(pad.rightPad).toBeGreaterThan(0);
+  });
+
+  it('reports padding on both sides for the split layout (bottom-right)', () => {
+    const pad = CanvasRenderer.estimateGalleryPlacardSidePadding(
+      galleryPlacardTemplate,
+      1200,
+      'bottom-right'
+    );
+    expect(pad.leftPad).toBeGreaterThan(0);
+    expect(pad.rightPad).toBeGreaterThan(0);
+  });
+
+  it('skips bottom padding when a side mode is active', () => {
+    const h = CanvasRenderer.estimateBottomPaddingHeight(
+      galleryPlacardTemplate,
+      fullExif,
+      1200,
+      1600,
+      'top-left'
+    );
+    expect(h).toBe(0);
+  });
 });
