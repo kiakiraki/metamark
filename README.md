@@ -42,12 +42,14 @@ npm run build
 
 ## 🛠 Tech Stack
 
-- **Framework**: Next.js 15 with App Router
-- **UI**: React 19 + TypeScript + Tailwind CSS
+- **Framework**: Next.js 16 (App Router, static export, Turbopack)
+- **UI**: React 19 + TypeScript + Tailwind CSS v4
+- **Components**: Radix UI primitives (Dialog, Select, Slider)
 - **Animations**: Framer Motion
-- **State Management**: Zustand
+- **State Management**: Zustand (with `persist` for user settings)
 - **EXIF Processing**: exifr
 - **File Upload**: react-dropzone
+- **Testing**: Vitest + Testing Library (jsdom)
 - **Deployment**: Cloudflare Workers
 
 ## 🔧 Configuration
@@ -74,24 +76,30 @@ Security headers are applied in the Worker (`src/worker.ts`), including:
 
 ```
 src/
-├── app/              # Next.js App Router pages
+├── app/              # Next.js App Router (single page + layout)
 ├── components/       # React components
-│   ├── upload/      # File upload components
-│   ├── editor/      # Canvas and template components
-│   └── export/      # Export controls
-├── services/        # Business logic (EXIF, Canvas, etc.)
-├── stores/          # Zustand state management
-├── templates/       # Design templates
-├── types/           # TypeScript definitions
-└── utils/           # Utility functions
+│   ├── workspace/    # Image preview, drag & drop, context menu
+│   ├── editor/       # Template/position selectors, lens & location overrides
+│   ├── export/       # Export controls
+│   ├── ui/           # Toast container
+│   └── ErrorBoundary.tsx
+├── hooks/            # Custom React hooks (canvas, upload, pan/zoom, export, toast, ...)
+├── services/         # Business logic (EXIF extraction, canvas rendering, image I/O)
+├── stores/           # Zustand state management
+├── templates/        # Overlay template definitions
+├── types/            # TypeScript definitions
+├── styles/           # Font loaders + bundled DotGothic16 woff2
+└── worker.ts         # Cloudflare Worker entry (static assets + security headers)
 ```
 
 ## 🎨 Templates
 
-- **Caption**: Black footer bar
+- **Caption**: Footer bar with optional invert
 - **Compact**: 2×2 frosted info card
-- **Technical**: Detailed specs (monospaced)
-- **Film**: Retro film-camera date imprint
+- **Technical**: Detailed specs with iconography (monospaced)
+- **Film**: Retro film-camera date imprint (auto-rotates for portrait)
+- **Imprint**: Frameless EXIF text printed directly on the photo (white/black)
+- **Gallery Placard**: Museum-style bottom placard with refined typography (with optional invert)
 
 ## 📋 Requirements
 
@@ -110,6 +118,8 @@ src/
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
+
+The bundled DotGothic16 font (`src/styles/fonts/DotGothic16-Latin.woff2`) is distributed under the SIL Open Font License 1.1; see [`src/styles/fonts/DotGothic16-OFL.txt`](src/styles/fonts/DotGothic16-OFL.txt).
 
 ## 🚀 Deployment
 
@@ -154,16 +164,15 @@ This project is configured for deployment to Cloudflare Workers with custom doma
 ✅ **Completed Features**:
 
 - Image upload with drag & drop
-- EXIF metadata extraction
-- Template system (Caption, Compact, Technical, Film)
-- Canvas rendering with overlays
-- High-quality image export
-- Responsive UI with dark/light themes
+- EXIF metadata extraction with Sony α-series model name normalization
+- Lens / location manual overrides
+- Template system (Caption, Compact, Technical, Film, Imprint, Gallery Placard)
+- Canvas rendering with overlays, pan & zoom preview, right-click context menu
+- High-quality image export (PNG/JPEG, quality control)
 - Static site generation for Cloudflare Workers
 
 🔄 **Coming Next**:
 
-- Additional templates (Film, Technical)
 - Custom template editor
 - Batch processing
 - RAW image support
