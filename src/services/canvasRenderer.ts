@@ -1004,7 +1004,7 @@ export class CanvasRenderer {
       ctx.font = `${titleWeight} ${layout.titleFontSize}px ${style.fontFamily}`;
       let cursorY = leftY + layout.titleFontSize;
       for (const line of layout.titleLines) {
-        ctx.fillText(line, leftX, cursorY);
+        this.fillTextWithTStarHighlight(ctx, line, leftX, cursorY);
         cursorY += layout.titleLineHeight;
       }
       ctx.restore();
@@ -1760,6 +1760,64 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
+  // Highlights the Zeiss "T*" coating mark in red wherever it appears in
+  // lens-name strings. Matches both the ASCII form "T*" and the full-width
+  // form "T＊" (U+FF0A) used by Sony/Zeiss in EXIF strings such as
+  // "Vario-Sonnar T＊ DT 16-80mm F3.5-4.5 ZA". Non-lens text won't contain
+  // either token, so this is safe to use for any text rendering path.
+  private static readonly ZEISS_TSTAR_COLOR = '#CC0000';
+
+  private static fillTextWithTStarHighlight(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number
+  ): void {
+    if (!text.includes('T*') && !text.includes('T＊')) {
+      ctx.fillText(text, x, y);
+      return;
+    }
+
+    const segments: Array<{ text: string; highlight: boolean }> = [];
+    let cursor = 0;
+    const pattern = /T[*＊]/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > cursor) {
+        segments.push({
+          text: text.slice(cursor, match.index),
+          highlight: false,
+        });
+      }
+      segments.push({ text: match[0], highlight: true });
+      cursor = match.index + match[0].length;
+    }
+    if (cursor < text.length) {
+      segments.push({ text: text.slice(cursor), highlight: false });
+    }
+
+    const widths = segments.map((s) => ctx.measureText(s.text).width);
+    const totalWidth = widths.reduce((sum, w) => sum + w, 0);
+
+    const align = ctx.textAlign;
+    let startX: number;
+    if (align === 'right' || align === 'end') startX = x - totalWidth;
+    else if (align === 'center') startX = x - totalWidth / 2;
+    else startX = x;
+
+    const prevAlign = ctx.textAlign;
+    const prevFill = ctx.fillStyle;
+    ctx.textAlign = 'left';
+    let cx = startX;
+    for (let i = 0; i < segments.length; i++) {
+      ctx.fillStyle = segments[i].highlight ? this.ZEISS_TSTAR_COLOR : prevFill;
+      ctx.fillText(segments[i].text, cx, y);
+      cx += widths[i];
+    }
+    ctx.fillStyle = prevFill;
+    ctx.textAlign = prevAlign;
+  }
+
   private static fillTextEllipsis(
     ctx: CanvasRenderingContext2D,
     text: string,
@@ -1769,7 +1827,7 @@ export class CanvasRenderer {
   ): void {
     if (maxWidth <= 0) return;
     if (ctx.measureText(text).width <= maxWidth) {
-      ctx.fillText(text, x, y);
+      this.fillTextWithTStarHighlight(ctx, text, x, y);
       return;
     }
     const ellipsis = '…';
@@ -1780,7 +1838,7 @@ export class CanvasRenderer {
     ) {
       truncated = truncated.slice(0, -1);
     }
-    ctx.fillText(truncated + ellipsis, x, y);
+    this.fillTextWithTStarHighlight(ctx, truncated + ellipsis, x, y);
   }
 
   private static drawTechnicalTemplate(
@@ -2465,7 +2523,7 @@ export class CanvasRenderer {
       ctx.save();
       ctx.globalAlpha = layout.lensOpacity;
       ctx.font = `${layout.lensFontSize}px ${style.fontFamily}`;
-      ctx.fillText(layout.lensText, anchorX, baselineY);
+      this.fillTextWithTStarHighlight(ctx, layout.lensText, anchorX, baselineY);
       ctx.restore();
       cursorY += layout.lensFontSize + layout.rowGap;
     }
@@ -2831,7 +2889,7 @@ export class CanvasRenderer {
       ).letterSpacing = layout.lensLetterSpacing;
       let y = cursorY + layout.lensFontSize;
       for (const line of layout.lensLines) {
-        ctx.fillText(line, x, y);
+        this.fillTextWithTStarHighlight(ctx, line, x, y);
         y += layout.lensLineHeight;
       }
       ctx.restore();
@@ -3227,7 +3285,7 @@ export class CanvasRenderer {
       let offset = 0;
       for (const line of allTextLines) {
         // With right alignment, x is the right edge of the text in rotated coordinates
-        ctx.fillText(line, isTop ? -offset : offset, 0);
+        this.fillTextWithTStarHighlight(ctx, line, isTop ? -offset : offset, 0);
         offset += lineHeight;
       }
 
@@ -3246,7 +3304,7 @@ export class CanvasRenderer {
 
       // Render all wrapped text lines
       for (const line of allTextLines) {
-        ctx.fillText(line, textX, currentY);
+        this.fillTextWithTStarHighlight(ctx, line, textX, currentY);
         currentY += lineHeight;
       }
     }
