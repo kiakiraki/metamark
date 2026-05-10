@@ -34,24 +34,24 @@ function createMockCtx(charWidth = 10) {
   return { ctx, calls, state };
 }
 
-describe('CanvasRenderer.fillTextWithTStarHighlight', () => {
-  const fillTextWithTStarHighlight = (
+describe('CanvasRenderer.fillTextWithBrandHighlights', () => {
+  const fillTextWithBrandHighlights = (
     CanvasRenderer as unknown as {
-      fillTextWithTStarHighlight: (
+      fillTextWithBrandHighlights: (
         ctx: CanvasRenderingContext2D,
         text: string,
         x: number,
         y: number
       ) => void;
     }
-  ).fillTextWithTStarHighlight.bind(CanvasRenderer);
+  ).fillTextWithBrandHighlights.bind(CanvasRenderer);
 
-  it('falls through to a single fillText when no T* is present', () => {
+  it('falls through to a single fillText when no brand mark is present', () => {
     const { ctx, calls } = createMockCtx();
-    fillTextWithTStarHighlight(ctx, 'FE 35mm F1.4 GM', 0, 10);
+    fillTextWithBrandHighlights(ctx, 'FE 35mm F1.4', 0, 10);
     expect(calls).toHaveLength(1);
     expect(calls[0]).toEqual({
-      text: 'FE 35mm F1.4 GM',
+      text: 'FE 35mm F1.4',
       x: 0,
       y: 10,
       fillStyle: '#ffffff',
@@ -60,7 +60,7 @@ describe('CanvasRenderer.fillTextWithTStarHighlight', () => {
 
   it('splits a left-aligned string at T* and paints only T* in red', () => {
     const { ctx, calls } = createMockCtx();
-    fillTextWithTStarHighlight(ctx, 'FE 55mm F1.8 ZA T*', 0, 10);
+    fillTextWithBrandHighlights(ctx, 'FE 55mm F1.8 ZA T*', 0, 10);
     expect(calls).toEqual([
       { text: 'FE 55mm F1.8 ZA ', x: 0, y: 10, fillStyle: '#ffffff' },
       { text: 'T*', x: 160, y: 10, fillStyle: '#CC0000' },
@@ -69,7 +69,7 @@ describe('CanvasRenderer.fillTextWithTStarHighlight', () => {
 
   it('matches the full-width T＊ form (Sony/Zeiss EXIF strings)', () => {
     const { ctx, calls } = createMockCtx();
-    fillTextWithTStarHighlight(
+    fillTextWithBrandHighlights(
       ctx,
       'Vario-Sonnar T＊ DT 16-80mm F3.5-4.5 ZA',
       0,
@@ -89,7 +89,7 @@ describe('CanvasRenderer.fillTextWithTStarHighlight', () => {
 
   it('handles T* in the middle of the string', () => {
     const { ctx, calls } = createMockCtx();
-    fillTextWithTStarHighlight(ctx, 'Vario T* Lens', 0, 10);
+    fillTextWithBrandHighlights(ctx, 'Vario T* Lens', 0, 10);
     expect(calls).toEqual([
       { text: 'Vario ', x: 0, y: 10, fillStyle: '#ffffff' },
       { text: 'T*', x: 60, y: 10, fillStyle: '#CC0000' },
@@ -97,10 +97,37 @@ describe('CanvasRenderer.fillTextWithTStarHighlight', () => {
     ]);
   });
 
+  it('paints Sony G Master GM in vermilion', () => {
+    const { ctx, calls } = createMockCtx();
+    fillTextWithBrandHighlights(ctx, 'FE 24-70mm F2.8 GM', 0, 10);
+    expect(calls).toEqual([
+      { text: 'FE 24-70mm F2.8 ', x: 0, y: 10, fillStyle: '#ffffff' },
+      { text: 'GM', x: 160, y: 10, fillStyle: '#CB4801' },
+    ]);
+  });
+
+  it('handles GM in the middle (e.g. GM II) and leaves GM word-bounded', () => {
+    const { ctx, calls } = createMockCtx();
+    fillTextWithBrandHighlights(ctx, 'FE 70-200mm F2.8 GM II', 0, 10);
+    expect(calls).toEqual([
+      { text: 'FE 70-200mm F2.8 ', x: 0, y: 10, fillStyle: '#ffffff' },
+      { text: 'GM', x: 170, y: 10, fillStyle: '#CB4801' },
+      { text: ' II', x: 190, y: 10, fillStyle: '#ffffff' },
+    ]);
+  });
+
+  it('does not match GM when not at a word boundary', () => {
+    const { ctx, calls } = createMockCtx();
+    // hypothetical "GMx" wouldn't be a word-bounded GM token
+    fillTextWithBrandHighlights(ctx, 'foo GMx bar', 0, 10);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].fillStyle).toBe('#ffffff');
+  });
+
   it('right-aligned text shifts segments left so the right edge stays at x', () => {
     const { ctx, calls, state } = createMockCtx();
     state.textAlign = 'right';
-    fillTextWithTStarHighlight(ctx, 'A T*', 200, 10);
+    fillTextWithBrandHighlights(ctx, 'A T*', 200, 10);
     // total width = 4 chars * 10 = 40, so segments start at 200 - 40 = 160
     expect(calls).toEqual([
       { text: 'A ', x: 160, y: 10, fillStyle: '#ffffff' },
@@ -114,7 +141,7 @@ describe('CanvasRenderer.fillTextWithTStarHighlight', () => {
     const { ctx, state } = createMockCtx();
     state.fillStyle = '#000000';
     state.textAlign = 'center';
-    fillTextWithTStarHighlight(ctx, 'X T*', 100, 10);
+    fillTextWithBrandHighlights(ctx, 'X T*', 100, 10);
     expect(state.fillStyle).toBe('#000000');
     expect(state.textAlign).toBe('center');
   });
