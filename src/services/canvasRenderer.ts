@@ -1004,7 +1004,7 @@ export class CanvasRenderer {
       ctx.font = `${titleWeight} ${layout.titleFontSize}px ${style.fontFamily}`;
       let cursorY = leftY + layout.titleFontSize;
       for (const line of layout.titleLines) {
-        this.fillTextWithTStarHighlight(ctx, line, leftX, cursorY);
+        this.fillTextWithBrandHighlights(ctx, line, leftX, cursorY);
         cursorY += layout.titleLineHeight;
       }
       ctx.restore();
@@ -1760,40 +1760,59 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
-  // Highlights the Zeiss "T*" coating mark in red wherever it appears in
-  // lens-name strings. Matches both the ASCII form "T*" and the full-width
-  // form "T＊" (U+FF0A) used by Sony/Zeiss in EXIF strings such as
-  // "Vario-Sonnar T＊ DT 16-80mm F3.5-4.5 ZA". Non-lens text won't contain
-  // either token, so this is safe to use for any text rendering path.
-  private static readonly ZEISS_TSTAR_COLOR = '#CC0000';
+  // Brand-mark highlights inside lens-name strings:
+  // - Zeiss "T*" coating mark (ASCII "T*" or full-width "T＊" / U+FF0A) → red
+  // - Sony G Master "GM" suffix (word-bounded) → vermilion sampled from
+  //   Sony's official G Master logo
+  // Non-lens text won't contain either token, so this is safe to use for any
+  // text rendering path.
+  private static readonly BRAND_HIGHLIGHTS: ReadonlyArray<{
+    pattern: RegExp;
+    color: string;
+  }> = [
+    { pattern: /T[*＊]/g, color: '#CC0000' },
+    { pattern: /\bGM\b/g, color: '#CB4801' },
+  ];
 
-  private static fillTextWithTStarHighlight(
+  private static fillTextWithBrandHighlights(
     ctx: CanvasRenderingContext2D,
     text: string,
     x: number,
     y: number
   ): void {
-    if (!text.includes('T*') && !text.includes('T＊')) {
+    const hits: Array<{ start: number; end: number; color: string }> = [];
+    for (const { pattern, color } of this.BRAND_HIGHLIGHTS) {
+      const re = new RegExp(pattern.source, pattern.flags);
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(text)) !== null) {
+        hits.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          color,
+        });
+      }
+    }
+    if (hits.length === 0) {
       ctx.fillText(text, x, y);
       return;
     }
+    hits.sort((a, b) => a.start - b.start);
 
-    const segments: Array<{ text: string; highlight: boolean }> = [];
+    const segments: Array<{ text: string; color: string | null }> = [];
     let cursor = 0;
-    const pattern = /T[*＊]/g;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-      if (match.index > cursor) {
-        segments.push({
-          text: text.slice(cursor, match.index),
-          highlight: false,
-        });
+    for (const hit of hits) {
+      if (hit.start < cursor) continue; // skip overlapping match
+      if (hit.start > cursor) {
+        segments.push({ text: text.slice(cursor, hit.start), color: null });
       }
-      segments.push({ text: match[0], highlight: true });
-      cursor = match.index + match[0].length;
+      segments.push({
+        text: text.slice(hit.start, hit.end),
+        color: hit.color,
+      });
+      cursor = hit.end;
     }
     if (cursor < text.length) {
-      segments.push({ text: text.slice(cursor), highlight: false });
+      segments.push({ text: text.slice(cursor), color: null });
     }
 
     const widths = segments.map((s) => ctx.measureText(s.text).width);
@@ -1810,7 +1829,7 @@ export class CanvasRenderer {
     ctx.textAlign = 'left';
     let cx = startX;
     for (let i = 0; i < segments.length; i++) {
-      ctx.fillStyle = segments[i].highlight ? this.ZEISS_TSTAR_COLOR : prevFill;
+      ctx.fillStyle = segments[i].color ?? prevFill;
       ctx.fillText(segments[i].text, cx, y);
       cx += widths[i];
     }
@@ -1827,7 +1846,7 @@ export class CanvasRenderer {
   ): void {
     if (maxWidth <= 0) return;
     if (ctx.measureText(text).width <= maxWidth) {
-      this.fillTextWithTStarHighlight(ctx, text, x, y);
+      this.fillTextWithBrandHighlights(ctx, text, x, y);
       return;
     }
     const ellipsis = '…';
@@ -1838,7 +1857,7 @@ export class CanvasRenderer {
     ) {
       truncated = truncated.slice(0, -1);
     }
-    this.fillTextWithTStarHighlight(ctx, truncated + ellipsis, x, y);
+    this.fillTextWithBrandHighlights(ctx, truncated + ellipsis, x, y);
   }
 
   private static drawTechnicalTemplate(
@@ -2523,7 +2542,12 @@ export class CanvasRenderer {
       ctx.save();
       ctx.globalAlpha = layout.lensOpacity;
       ctx.font = `${layout.lensFontSize}px ${style.fontFamily}`;
-      this.fillTextWithTStarHighlight(ctx, layout.lensText, anchorX, baselineY);
+      this.fillTextWithBrandHighlights(
+        ctx,
+        layout.lensText,
+        anchorX,
+        baselineY
+      );
       ctx.restore();
       cursorY += layout.lensFontSize + layout.rowGap;
     }
@@ -2889,7 +2913,7 @@ export class CanvasRenderer {
       ).letterSpacing = layout.lensLetterSpacing;
       let y = cursorY + layout.lensFontSize;
       for (const line of layout.lensLines) {
-        this.fillTextWithTStarHighlight(ctx, line, x, y);
+        this.fillTextWithBrandHighlights(ctx, line, x, y);
         y += layout.lensLineHeight;
       }
       ctx.restore();
@@ -3285,7 +3309,12 @@ export class CanvasRenderer {
       let offset = 0;
       for (const line of allTextLines) {
         // With right alignment, x is the right edge of the text in rotated coordinates
-        this.fillTextWithTStarHighlight(ctx, line, isTop ? -offset : offset, 0);
+        this.fillTextWithBrandHighlights(
+          ctx,
+          line,
+          isTop ? -offset : offset,
+          0
+        );
         offset += lineHeight;
       }
 
@@ -3304,7 +3333,7 @@ export class CanvasRenderer {
 
       // Render all wrapped text lines
       for (const line of allTextLines) {
-        this.fillTextWithTStarHighlight(ctx, line, textX, currentY);
+        this.fillTextWithBrandHighlights(ctx, line, textX, currentY);
         currentY += lineHeight;
       }
     }
