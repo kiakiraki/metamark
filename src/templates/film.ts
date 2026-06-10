@@ -1,4 +1,5 @@
 import type { Template } from '@/types/template';
+import { dotGothic } from '@/styles/fonts';
 
 // Format to classic film date imprint like "'98.12.05"
 function formatFilmDate(value: string | null): string {
@@ -31,7 +32,7 @@ export const filmTemplate: Template = {
   description: 'Retro film-camera date imprint style',
   style: {
     // Dot-matrix feel for film date imprint
-    fontFamily: "'DotGothic16', 'Courier New', monospace",
+    fontFamily: `${dotGothic.style.fontFamily}, 'Courier New', monospace`,
     fontSize: 30,
     // Amber/orange LED-like color
     textColor: '#ff6a00',
@@ -48,7 +49,7 @@ export const filmTemplate: Template = {
     height: 40,
     alignment: 'left',
   },
-  fontRequirements: [{ family: 'DotGothic16' }],
+  fontRequirements: [{ family: dotGothic.style.fontFamily }],
   positionOverride: (isPortrait) => (isPortrait ? 'top-right' : 'bottom-right'),
   textShadow: true,
   rotateForPortrait: true,
