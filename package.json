@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "postbuild": "node scripts/generate-csp.mjs",
     "start": "next start",
     "preview": "npx serve dist -l 3000",
     "lint": "eslint",

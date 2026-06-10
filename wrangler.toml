@@ -1,13 +1,14 @@
 name = "metamark"
 compatibility_date = "2025-08-31"
-main = "src/worker.ts"
 workers_dev = false
 preview_urls = true
 
+# Static-assets-only Worker: all response headers (security + caching) come
+# from dist/_headers — the base set lives in public/_headers and the CSP line
+# is appended by scripts/generate-csp.mjs after each build.
 [assets]
 directory = "dist"
-binding = "ASSETS"
-html_handling = "force-trailing-slash"
+not_found_handling = "single-page-application"
 
 [[routes]]
 pattern = "metamark.kiakiraki.dev"
@@ -16,3 +17,6 @@ custom_domain = true
 [env.preview]
 name = "metamark-preview"
 workers_dev = true
+# Do not inherit the production custom domain — deploying preview would
+# otherwise reassign metamark.kiakiraki.dev away from the production Worker.
+routes = []

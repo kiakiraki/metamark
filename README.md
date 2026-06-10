@@ -58,19 +58,16 @@ npm run build
 
 1. **Build Command**: `npm run build`
 2. **Output Directory**: `dist`
-3. **Environment Variables** (optional):
-   - `NODE_VERSION`: 20
-   - `NPM_VERSION`: 10
-   - `NEXT_TELEMETRY_DISABLED`: 1
 
 ### Security Headers
 
-Security headers are applied in the Worker (`src/worker.ts`), including:
+Response headers are served from `dist/_headers` (Workers Static Assets):
 
-- Content Security Policy (CSP)
-- Cross-Origin Policies (COOP/COEP)
-- Common hardening headers (XFO, XCTO, HSTS, Referrer-Policy)
-  Note: `public/_headers` is not used on Workers.
+- The base set (COOP/COEP, XFO, XCTO, HSTS, Referrer-Policy) and cache
+  policy for `/_next/static/*` live in `public/_headers`.
+- The Content Security Policy is appended after each build by
+  `scripts/generate-csp.mjs` (the `postbuild` hook), because the static
+  export embeds inline scripts whose hashes change every build.
 
 ## 📁 Project Structure
 
@@ -88,8 +85,7 @@ src/
 ├── stores/           # Zustand state management
 ├── templates/        # Overlay template definitions
 ├── types/            # TypeScript definitions
-├── styles/           # Font loaders + bundled DotGothic16 woff2
-└── worker.ts         # Cloudflare Worker entry (static assets + security headers)
+└── styles/           # Font loaders + bundled DotGothic16 woff2
 ```
 
 ## 🎨 Templates
@@ -156,7 +152,7 @@ This project is configured for deployment to Cloudflare Workers with custom doma
    - **Wrangler Config**: `wrangler.toml`
 
 4. **Notes**:
-   - The Worker serves files from `dist/` and injects security headers.
+   - The Worker serves static assets from `dist/`; response headers come from `dist/_headers`.
    - Ensure DNS/custom domain is mapped to the Worker route in `wrangler.toml`.
 
 ## 🎯 MVP Status
