@@ -13,6 +13,7 @@ const eslintConfig = [
       'out/**',
       'dist/**',
       'build/**',
+      '.wrangler/**',
       'next-env.d.ts',
     ],
   },

@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Claude Code files
 .claude/
+
+# Wrangler local state
+.wrangler/

@@ -50,7 +50,7 @@ CI runs: lint → format:check → tsc --noEmit → test → build.
 - **`src/templates/`** — Template definitions exported through `index.ts` as a `Partial<Record<TemplatePreset, Template>>`: `caption`, `compact`, `technical`, `film`, `imprint`, `gallery-placard`. Each exports a `Template` object with style/position/render config; shared field definitions live in `src/templates/shared/baseFields.ts`.
 - **`src/types/`** — Shared TypeScript types for exif, image, template, and canvas.
 - **`src/styles/fonts.ts`** — Centralized font loaders consumed by the layout: Geist Sans/Mono and Besley via `next/font/google`, DotGothic16 self-hosted via `next/font/local` from `src/styles/fonts/DotGothic16-Latin.woff2` (see `docs/font-build-failure.md` — Google Fonts' DotGothic16 fans out into ~120 subset fetches and a single transient failure breaks the build).
-- **`src/worker.ts`** — Cloudflare Worker entry point. Serves static assets from dist/, injects security headers (CSP, HSTS, COOP/COEP), handles SPA fallback to /index.html, and sets cache policies.
+- **Deployment** — Static-assets-only Cloudflare Worker (no `main` script). Response headers (security + caching) are served from `dist/_headers`: the base set lives in `public/_headers`, and the CSP line is appended after each build by `scripts/generate-csp.mjs` (the `postbuild` hook) because the static export embeds inline scripts whose hashes change per build. SPA fallback is handled by `not_found_handling` in `wrangler.toml`.
 
 ### Import Alias
 

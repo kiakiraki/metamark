@@ -31,3 +31,5 @@ Thumbs.db
 *.log
 *.tgz
 *.tar.gz
+# Wrangler local state
+.wrangler/
