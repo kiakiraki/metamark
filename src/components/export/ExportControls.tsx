@@ -3,22 +3,20 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSelectedImage } from '@/stores/imageStore';
-import { useExifStore } from '@/stores/exifStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import { ImageProcessor } from '@/services/imageProcessor';
 import clsx from 'clsx';
 import { useToast } from '@/hooks/useToast';
 import { useEffectiveTemplate } from '@/hooks/useEffectiveTemplate';
+import { useEffectiveExifData } from '@/hooks/useEffectiveExifData';
 
 export function ExportControls() {
   const [isExporting, setIsExporting] = useState(false);
   const toast = useToast();
 
   const selectedImage = useSelectedImage();
-  const getEffectiveNormalizedData = useExifStore(
-    (state) => state.getEffectiveNormalizedData
-  );
+  const exifData = useEffectiveExifData(selectedImage?.id);
   const selectedTemplate = useEffectiveTemplate();
   const canvasSettings = useSettingsStore((state) => state.canvasSettings);
   const updateCanvasSettings = useSettingsStore(
@@ -26,17 +24,12 @@ export function ExportControls() {
   );
 
   const handleExport = async () => {
-    if (!selectedImage || !selectedTemplate) return;
+    if (!selectedImage || !selectedTemplate || !exifData) return;
 
     setIsExporting(true);
 
     try {
       const image = await ImageProcessor.createImageElement(selectedImage.url);
-      const exifData = getEffectiveNormalizedData(selectedImage.id);
-
-      if (!exifData) {
-        throw new Error('No EXIF data available');
-      }
 
       // Create temporary canvas for export
       const canvas = document.createElement('canvas');
@@ -57,6 +50,9 @@ export function ExportControls() {
           width,
           height,
         },
+        // Keep the exported resolution independent of the display the app
+        // runs on; calculateOptimalSize already caps the output at 4K.
+        devicePixelRatio: 1,
       });
 
       const url = URL.createObjectURL(blob);
@@ -82,7 +78,10 @@ export function ExportControls() {
     }
   };
 
-  const canExport = selectedImage && selectedTemplate;
+  // exifData is undefined while extraction is still in flight; images
+  // without EXIF still resolve to an all-null NormalizedExifData, so this
+  // only blocks the brief extraction window after an upload.
+  const canExport = selectedImage && selectedTemplate && exifData;
 
   return (
     <div className="space-y-6">
@@ -151,9 +150,11 @@ export function ExportControls() {
             ? 'Select an image first'
             : !selectedTemplate
               ? 'Choose a template first'
-              : isExporting
-                ? 'Exporting...'
-                : 'Download image with overlay'
+              : !exifData
+                ? 'Reading image metadata...'
+                : isExporting
+                  ? 'Exporting...'
+                  : 'Download image with overlay'
         }
         className={clsx(
           'w-full py-3 px-4 rounded-lg font-medium text-center transition-colors',
@@ -174,9 +175,10 @@ export function ExportControls() {
       <div className="text-xs text-gray-500 space-y-1">
         {!selectedImage && <p>• Select an image to export</p>}
         {selectedImage && !selectedTemplate && <p>• Choose a template</p>}
-        {selectedImage && selectedTemplate && (
-          <p className="text-green-600">✓ Ready to export</p>
+        {selectedImage && selectedTemplate && !exifData && (
+          <p>• Reading image metadata...</p>
         )}
+        {canExport && <p className="text-green-600">✓ Ready to export</p>}
       </div>
     </div>
   );

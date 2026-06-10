@@ -262,7 +262,7 @@ let galleryPlacardLayoutCache: {
 } | null = null;
 
 export class CanvasRenderer {
-  static async render(options: RenderOptions): Promise<string> {
+  static async render(options: RenderOptions): Promise<void> {
     const { canvas, image, template, exifData, settings } = options;
     const ctx = canvas.getContext('2d');
 
@@ -272,7 +272,8 @@ export class CanvasRenderer {
 
     // Get device pixel ratio for high-DPI displays
     const devicePixelRatio =
-      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      options.devicePixelRatio ??
+      (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
 
     const baseWidth = settings.width;
     const baseHeight = settings.height;
@@ -465,12 +466,6 @@ export class CanvasRenderer {
         overlayPosition: effectiveSettings.overlayPosition,
       });
     }
-
-    // Return as data URL
-    return canvas.toDataURL(
-      settings.format === 'png' ? 'image/png' : 'image/jpeg',
-      settings.quality
-    );
   }
 
   private static calculateDynamicPosition(

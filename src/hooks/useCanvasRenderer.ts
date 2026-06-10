@@ -99,13 +99,23 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
   );
 
   useEffect(() => {
+    // Re-runs of this effect must not let an older in-flight render finish
+    // after a newer one: the slower run would draw a stale image/template
+    // onto the canvas, and its `finally` would clear isRendering while the
+    // newer render is still working.
+    let cancelled = false;
+
     const renderCanvas = async () => {
-      if (!currentImage || !selectedTemplate || !canvasRef.current) return;
+      if (!currentImage || !selectedTemplate || !canvasRef.current) {
+        setIsRendering(false);
+        return;
+      }
 
       setIsRendering(true);
 
       try {
         const image = await ImageProcessor.createImageElement(currentImage.url);
+        if (cancelled) return;
 
         const exifData = currentExifData ?? PLACEHOLDER_EXIF_DATA;
         const { width: renderWidth, height: renderHeight } =
@@ -128,16 +138,24 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
             height: renderHeight,
           },
         });
+        if (cancelled) return;
         updateCanvasDisplaySize();
       } catch (error: unknown) {
-        console.error('Error rendering canvas:', error);
+        if (!cancelled) {
+          console.error('Error rendering canvas:', error);
+        }
       } finally {
-        setIsRendering(false);
+        if (!cancelled) {
+          setIsRendering(false);
+        }
       }
     };
 
     const timer = setTimeout(renderCanvas, 50);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [
     currentImage,
     selectedTemplate,
