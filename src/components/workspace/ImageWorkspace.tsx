@@ -103,10 +103,9 @@ export function ImageWorkspace() {
           'relative w-full rounded-xl overflow-hidden transition-all duration-300',
           'flex justify-center bg-gray-100 dark:bg-gray-700',
           {
-            'ring-2 ring-blue-400 ring-opacity-50 dark:ring-blue-500':
+            'ring-2 ring-blue-400/50 dark:ring-blue-500/50':
               isDragActive && !isDragReject,
-            'ring-2 ring-red-400 ring-opacity-50 dark:ring-red-500':
-              isDragReject,
+            'ring-2 ring-red-400/50 dark:ring-red-500/50': isDragReject,
           }
         )}
         style={{
@@ -132,7 +131,7 @@ export function ImageWorkspace() {
 
         {/* Processing Overlay */}
         {(isRendering || currentImage.isProcessing) && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
             <div className="text-white text-center space-y-3">
               <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto"></div>
               <p className="font-medium">
@@ -144,7 +143,7 @@ export function ImageWorkspace() {
 
         {/* Drag Overlay */}
         {isDragActive && (
-          <div className="absolute inset-0 bg-blue-600 bg-opacity-90 rounded-xl flex items-center justify-center">
+          <div className="absolute inset-0 bg-blue-600/90 rounded-xl flex items-center justify-center">
             <div className="text-center text-white space-y-4">
               <div className="text-6xl">📥</div>
               <p className="text-xl font-bold">
@@ -176,7 +175,7 @@ export function ImageWorkspace() {
       </AnimatePresence>
 
       {/* Image Info Bar */}
-      <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-90 text-white px-4 py-2 rounded-lg text-sm">
+      <div className="absolute bottom-4 left-4 bg-black/75 dark:bg-gray-900/90 text-white px-4 py-2 rounded-lg text-sm">
         <div className="flex items-center space-x-4">
           <span className="font-medium">{currentImage.name}</span>
           <span>
