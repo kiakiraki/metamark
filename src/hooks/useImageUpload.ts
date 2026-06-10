@@ -43,6 +43,13 @@ export function useImageUpload() {
 
       try {
         const imageFile = await ImageProcessor.loadImageFile(file);
+        // A later drop may have aborted this one while the file was decoding;
+        // landing setImage here would replace the newer image with this stale
+        // one (and its EXIF extraction below would be skipped as aborted).
+        if (signal.aborted) {
+          ImageProcessor.cleanupImageUrl(imageFile.url);
+          return;
+        }
         setImage(imageFile);
 
         extractExifData(file)
@@ -58,6 +65,7 @@ export function useImageUpload() {
             toast.error('Failed to extract EXIF data.');
           });
       } catch (error: unknown) {
+        if (signal.aborted) return;
         console.error('Error loading image:', error);
         toast.error('Failed to load image.');
       }
