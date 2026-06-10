@@ -27,7 +27,10 @@ function collectHtmlFiles(dir) {
 
 function inlineScriptHashes(html) {
   const hashes = [];
-  const scriptRe = /<script([^>]*)>([\s\S]*?)<\/script>/gi;
+  // Per the HTML spec a closing tag may carry whitespace or attributes
+  // (`</script >`), and browsers end the element at the first such tag —
+  // match the same way so hashes cover exactly what the browser executes.
+  const scriptRe = /<script([^>]*)>([\s\S]*?)<\/script[^>]*>/gi;
   for (const [, attrs, body] of html.matchAll(scriptRe)) {
     if (/\bsrc\s*=/i.test(attrs) || body === '') continue;
     const digest = createHash('sha256').update(body, 'utf8').digest('base64');
