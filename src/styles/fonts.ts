@@ -1,27 +1,25 @@
-import { Geist, Geist_Mono, Besley } from 'next/font/google';
-import localFont from 'next/font/local';
+// Font-family constants. The font files are self-hosted via @fontsource
+// packages whose CSS is imported in src/app/layout.tsx — no build-time
+// network fetches (next/font/google pulled ~120 subset files from gstatic
+// and a single transient failure broke the build, see
+// docs/font-build-failure.md).
+//
+// The `{ style: { fontFamily } }` shape matches what next/font exported so
+// templates keep reading `xxx.style.fontFamily` unchanged. These strings
+// must match the @font-face family names declared by the @fontsource CSS.
 
-export const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
+export const geistSans = {
+  style: { fontFamily: "'Geist Variable', system-ui, sans-serif" },
+};
 
-export const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+export const geistMono = {
+  style: { fontFamily: "'Geist Mono Variable', monospace" },
+};
 
-// Self-hosted: DotGothic16 via next/font/google fans out into ~120 woff2
-// subset requests at build time and a single transient fetch failure breaks
-// the build. Keep the file in src/ so next/font/local bundles it.
-export const dotGothic = localFont({
-  src: './fonts/DotGothic16-Latin.woff2',
-  variable: '--font-dotgothic',
-  display: 'swap',
-});
+export const dotGothic = {
+  style: { fontFamily: "'DotGothic16'" },
+};
 
-export const besley = Besley({
-  subsets: ['latin'],
-  variable: '--font-besley',
-  weight: ['400', '600'],
-});
+export const besley = {
+  style: { fontFamily: "'Besley Variable', serif" },
+};
