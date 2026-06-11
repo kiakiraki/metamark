@@ -52,13 +52,15 @@ const scriptHashes = [
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self' ${scriptHashes.join(' ')}`,
+  // Cloudflare Web Analytics injects its beacon script at the edge
+  `script-src 'self' https://static.cloudflareinsights.com ${scriptHashes.join(' ')}`,
   // framer-motion sets inline style attributes
   "style-src 'self' 'unsafe-inline'",
   // previews use blob: URLs, icons may use data:
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // the analytics beacon posts RUM data to cloudflareinsights.com
+  "connect-src 'self' https://cloudflareinsights.com",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
