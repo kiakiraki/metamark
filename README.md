@@ -42,7 +42,7 @@ npm run build
 
 ## 🛠 Tech Stack
 
-- **Framework**: Next.js 16 (App Router, static export, Turbopack)
+- **Build Tool**: Vite (static SPA build)
 - **UI**: React 19 + TypeScript + Tailwind CSS v4
 - **Components**: Radix UI primitives (Dialog, Select, Slider)
 - **Animations**: Framer Motion
@@ -63,17 +63,18 @@ npm run build
 
 Response headers are served from `dist/_headers` (Workers Static Assets):
 
-- The base set (COOP/COEP, XFO, XCTO, HSTS, Referrer-Policy) and cache
-  policy for `/_next/static/*` live in `public/_headers`.
-- The Content Security Policy is appended after each build by
-  `scripts/generate-csp.mjs` (the `postbuild` hook), because the static
-  export embeds inline scripts whose hashes change every build.
+- The full set (CSP, COOP/COEP, XFO, XCTO, HSTS, Referrer-Policy) and the
+  cache policy for `/assets/*` live in `public/_headers`.
+- The CSP is static because Vite's output contains no inline scripts;
+  `scripts/verify-csp.mjs` (the `postbuild` hook) fails the build if one
+  ever appears.
 
 ## 📁 Project Structure
 
 ```
 src/
-├── app/              # Next.js App Router (single page + layout)
+├── main.tsx          # Entry point (createRoot + global CSS + fonts)
+├── App.tsx           # The single page
 ├── components/       # React components
 │   ├── workspace/    # Image preview, drag & drop, context menu
 │   ├── editor/       # Template/position selectors, lens & location overrides
@@ -115,7 +116,7 @@ src/
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-The bundled DotGothic16 font (`src/styles/fonts/DotGothic16-Latin.woff2`) is distributed under the SIL Open Font License 1.1; see [`src/styles/fonts/DotGothic16-OFL.txt`](src/styles/fonts/DotGothic16-OFL.txt).
+Fonts (Geist, Geist Mono, Besley, DotGothic16) are self-hosted via [Fontsource](https://fontsource.org/) packages and distributed under the SIL Open Font License 1.1 (license files ship inside each `@fontsource` package).
 
 ## 🚀 Deployment
 

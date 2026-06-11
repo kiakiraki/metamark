@@ -1,5 +1,3 @@
-'use client';
-
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useToastStore } from '@/hooks/useToast';
