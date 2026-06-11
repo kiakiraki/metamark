@@ -2621,7 +2621,7 @@ export class CanvasRenderer {
 
   private static formatGalleryPlacardDate(value: string | null): string | null {
     if (!value) return null;
-    const m = value.match(/(\d{4})[\/\-:.](\d{2})[\/\-:.](\d{2})/);
+    const m = value.match(/(\d{4})[/\-:.](\d{2})[/\-:.](\d{2})/);
     if (m) {
       const [, yyyy, mm, dd] = m;
       return `${yyyy}.${mm}.${dd}`;

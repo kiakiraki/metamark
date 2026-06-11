@@ -1,5 +1,3 @@
-'use client';
-
 import { ImageWorkspace } from '@/components/workspace/ImageWorkspace';
 import { TemplateSelector } from '@/components/editor/TemplateSelector';
 import { LensOverrideField } from '@/components/editor/LensOverrideField';
@@ -8,7 +6,7 @@ import { ExportControls } from '@/components/export/ExportControls';
 import { ToastContainer } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-export default function Home() {
+export function App() {
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
       <div className="container mx-auto px-4 py-8">

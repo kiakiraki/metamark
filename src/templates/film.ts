@@ -6,7 +6,7 @@ function formatFilmDate(value: string | null): string {
   if (!value) return `'--.--.--`;
 
   // Match common patterns: YYYY/MM/DD, YYYY-MM-DD, YYYY:MM:DD, etc.
-  const m = value.match(/(\d{4})[\/\-:.](\d{2})[\/\-:.](\d{2})/);
+  const m = value.match(/(\d{4})[/\-:.](\d{2})[/\-:.](\d{2})/);
   if (m) {
     const [, yyyy, mm, dd] = m;
     const yy = yyyy.slice(-2);
