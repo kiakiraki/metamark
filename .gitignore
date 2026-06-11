@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Wrangler local state
 .wrangler/
+
+# Local working notes
+docs/
