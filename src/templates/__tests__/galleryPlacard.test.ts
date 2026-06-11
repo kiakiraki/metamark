@@ -1,16 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
-
-// next/font/google and next/font/local are next.js build-time loaders that
-// throw outside the next runtime. Stub them so importing the template
-// registry (which transitively pulls in fonts.ts) works under vitest.
-vi.mock('next/font/google', () => {
-  const stub = () => ({ style: { fontFamily: 'stub' } });
-  return { Geist: stub, Geist_Mono: stub, Besley: stub };
-});
-vi.mock('next/font/local', () => ({
-  default: () => ({ style: { fontFamily: 'stub-local' } }),
-}));
-
+import { describe, it, expect } from 'vitest';
 import { templates, galleryPlacardTemplate } from '@/templates';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import type { NormalizedExifData } from '@/types/exif';

@@ -1,6 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { geistSans, geistMono, dotGothic, besley } from '@/styles/fonts';
+// Self-hosted fonts (see src/styles/fonts.ts for the matching font-family
+// constants). The film template only draws latin digits/punctuation, so
+// DotGothic16 ships the latin subset alone.
+import '@fontsource-variable/geist/index.css';
+import '@fontsource-variable/geist-mono/index.css';
+import '@fontsource-variable/besley/index.css';
+import '@fontsource/dotgothic16/latin-400.css';
 
 export const metadata: Metadata = {
   title: 'MetaMark - EXIF Metadata Overlay',
@@ -15,11 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head />
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dotGothic.variable} ${besley.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

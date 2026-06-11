@@ -85,7 +85,7 @@ src/
 ├── stores/           # Zustand state management
 ├── templates/        # Overlay template definitions
 ├── types/            # TypeScript definitions
-└── styles/           # Font loaders + bundled DotGothic16 woff2
+└── styles/           # Font-family constants (font files via @fontsource)
 ```
 
 ## 🎨 Templates
