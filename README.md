@@ -44,7 +44,7 @@ npm run build
 
 - **Build Tool**: Vite (static SPA build)
 - **UI**: React 19 + TypeScript + Tailwind CSS v4
-- **Components**: Radix UI primitives (Dialog, Select, Slider)
+- **Animations**: framer-motion
 - **Animations**: Framer Motion
 - **State Management**: Zustand (with `persist` for user settings)
 - **EXIF Processing**: exifr

@@ -36,17 +36,17 @@ CI runs: lint → format:check → tsc --noEmit → test → build.
 ### Key Layers
 
 - **Entry** — `index.html` (pins the theme to dark via `<html class="dark">`) → `src/main.tsx` (createRoot + global CSS + @fontsource imports) → `src/App.tsx` (the single page).
-- **`src/components/`** — UI split into `workspace/` (image preview, drag-and-drop canvas, right-click `PreviewContextMenu`), `editor/` (`TemplateSelector`, `PositionSelector`, `LensOverrideField`, `LocationOverrideField`), `export/` (format/quality/download controls), `ui/` (toast container). Top-level `ErrorBoundary.tsx` wraps the workspace.
+- **`src/components/`** — UI split into `workspace/` (image preview, drag-and-drop canvas), `editor/` (`TemplateSelector`, `PositionSelector`, `LensOverrideField`, `LocationOverrideField`), `export/` (format/quality/download controls), `ui/` (toast container). Top-level `ErrorBoundary.tsx` wraps the workspace.
 - **`src/services/`** — Pure business logic, no React dependencies:
   - `exifExtractor.ts` — Reads EXIF via exifr and normalizes to display strings (ja-JP locale for dates). Routes Sony bodies through `cameraNameFormatter`.
   - `cameraNameFormatter.ts` — Rewrites Sony ILCE/ILCA/DSC model codes into the marketing α-series names (e.g. `ILCE-7M4` → `α7 IV`).
   - `canvasRenderer.ts` — Canvas drawing with dynamic height calculation, text wrapping, responsive font scaling, 4K support. Dispatches per-template rendering via the template's `customDraw` (`caption`, `technical`, `compact`, `imprint`, `gallery-placard`); the film template auto-rotates for portrait images.
   - `imageProcessor.ts` — File validation (JPEG/PNG/HEIC, max 20MB), Blob URL lifecycle.
-- **`src/stores/`** — Zustand stores. No cross-store dependencies.
+- **`src/stores/`** — Zustand stores. Mostly independent; the one cross-store call is `imageStore` clearing `exifStore` when the image is replaced or removed (prevents stale EXIF leaking across images).
   - `imageStore` / `templateStore` — selected image and template preset.
   - `exifStore` — raw + normalized EXIF, plus per-image `lensOverrides` / `locationOverrides` exposed via `getEffectiveNormalizedData`.
   - `settingsStore` — `persist`-backed canvas settings plus template tweaks (`captionInvert`, `galleryPlacardInvert`, `imprintColor`).
-- **`src/hooks/`** — Custom React hooks bridging stores/services to components: `useCanvasRenderer`, `useImageUpload`, `useImageExport`, `useResponsiveCanvas`, `usePanZoom` (pinch/scroll zoom + drag with viewport clamping), `useEffectiveTemplate` and `useEffectiveExifData` (apply settings/overrides on top of the selected template/EXIF), `useToast`.
+- **`src/hooks/`** — Custom React hooks bridging stores/services to components: `useCanvasRenderer`, `useImageUpload`, `useResponsiveCanvas`, `useEffectiveTemplate` and `useEffectiveExifData` (apply settings/overrides on top of the selected template/EXIF), `useToast`. Note: `useImageExport`, `usePanZoom`, and `workspace/PreviewContextMenu` exist as uncommitted work-in-progress files that nothing imports yet — wire them up (and fold the `ExportControls` duplicate logic into `useImageExport`) before committing them.
 - **`src/templates/`** — Template definitions exported through `index.ts` as a `Partial<Record<TemplatePreset, Template>>`: `caption`, `compact`, `technical`, `film`, `imprint`, `gallery-placard`. Each exports a `Template` object with style/position/render config; shared field definitions live in `src/templates/shared/baseFields.ts`.
 - **`src/types/`** — Shared TypeScript types for exif, image, template, and canvas.
 - **`src/styles/fonts.ts`** — Font-family constants (plain strings in a `{ style: { fontFamily } }` shape consumed by templates). Font files are self-hosted via `@fontsource` packages whose CSS is imported in `src/main.tsx` — no build-time network fetches (`docs/font-build-failure.md` describes the next/font/google failures this replaced). The constant strings must match the `@font-face` family names declared by the @fontsource CSS.
@@ -64,5 +64,5 @@ CI runs: lint → format:check → tsc --noEmit → test → build.
 
 - Prettier: single quotes, trailing commas (es5), semicolons, 2-space indent, LF line endings.
 - ESLint: @eslint/js + typescript-eslint + react-hooks + react-refresh + eslint-config-prettier.
-- UI components use Radix UI primitives (Dialog, Select, Slider) for accessibility.
 - Class name composition uses `clsx`.
+- Animations use `framer-motion`.
