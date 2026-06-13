@@ -1,17 +1,13 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSelectedImage } from '@/stores/imageStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { CanvasRenderer } from '@/services/canvasRenderer';
-import { ImageProcessor } from '@/services/imageProcessor';
 import clsx from 'clsx';
-import { useToast } from '@/hooks/useToast';
 import { useEffectiveTemplate } from '@/hooks/useEffectiveTemplate';
 import { useEffectiveExifData } from '@/hooks/useEffectiveExifData';
+import { useImageExport } from '@/hooks/useImageExport';
 
 export function ExportControls() {
-  const [isExporting, setIsExporting] = useState(false);
-  const toast = useToast();
+  const { exportImage, isExporting, canExport } = useImageExport();
 
   const selectedImage = useSelectedImage();
   const exifData = useEffectiveExifData(selectedImage?.id);
@@ -20,66 +16,6 @@ export function ExportControls() {
   const updateCanvasSettings = useSettingsStore(
     (state) => state.updateCanvasSettings
   );
-
-  const handleExport = async () => {
-    if (!selectedImage || !selectedTemplate || !exifData) return;
-
-    setIsExporting(true);
-
-    try {
-      const image = await ImageProcessor.createImageElement(selectedImage.url);
-
-      // Create temporary canvas for export
-      const canvas = document.createElement('canvas');
-
-      // Use original image dimensions for high quality export
-      const { width, height } = CanvasRenderer.calculateOptimalSize(
-        selectedImage.width,
-        selectedImage.height
-      );
-
-      const blob = await CanvasRenderer.renderToBlob({
-        canvas,
-        image,
-        template: selectedTemplate,
-        exifData,
-        settings: {
-          ...canvasSettings,
-          width,
-          height,
-        },
-        // Keep the exported resolution independent of the display the app
-        // runs on; calculateOptimalSize already caps the output at 4K.
-        devicePixelRatio: 1,
-      });
-
-      const url = URL.createObjectURL(blob);
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `metamark_${selectedImage.name.replace(/\.[^/.]+$/, '')}.${canvasSettings.format}`;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        try {
-          a.click();
-        } finally {
-          a.remove();
-        }
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (error: unknown) {
-      console.error('Export failed:', error);
-      toast.error('Export failed. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // exifData is undefined while extraction is still in flight; images
-  // without EXIF still resolve to an all-null NormalizedExifData, so this
-  // only blocks the brief extraction window after an upload.
-  const canExport = selectedImage && selectedTemplate && exifData;
 
   return (
     <div className="space-y-6">
@@ -141,8 +77,9 @@ export function ExportControls() {
 
       {/* Export Button */}
       <motion.button
-        onClick={handleExport}
+        onClick={() => exportImage()}
         disabled={!canExport || isExporting}
+        aria-busy={isExporting}
         title={
           !selectedImage
             ? 'Select an image first'
