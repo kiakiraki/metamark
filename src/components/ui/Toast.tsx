@@ -7,7 +7,11 @@ export function ToastContainer() {
   const removeToast = useToastStore((state) => state.removeToast);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+    >
       <AnimatePresence>
         {toasts.map((toast) => (
           <motion.div
@@ -17,7 +21,7 @@ export function ToastContainer() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
             className={clsx(
-              'px-4 py-3 rounded-lg shadow-lg text-sm font-medium cursor-pointer max-w-sm',
+              'flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium cursor-pointer max-w-sm',
               {
                 'bg-green-600 text-white': toast.type === 'success',
                 'bg-red-600 text-white': toast.type === 'error',
@@ -26,7 +30,18 @@ export function ToastContainer() {
             )}
             onClick={() => removeToast(toast.id)}
           >
-            {toast.message}
+            <span className="flex-1">{toast.message}</span>
+            <button
+              type="button"
+              aria-label="Close notification"
+              className="flex-shrink-0 rounded p-0.5 focus:outline-none focus:ring-2 focus:ring-white/70"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeToast(toast.id);
+              }}
+            >
+              ✕
+            </button>
           </motion.div>
         ))}
       </AnimatePresence>
