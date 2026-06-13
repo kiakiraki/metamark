@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
+import { usePanZoom } from '@/hooks/usePanZoom';
 
 export function ImageWorkspace() {
   const [showControls, setShowControls] = useState(false);
+
+  // Refs for pan/zoom — must be created unconditionally (Rules of Hooks).
+  // viewportRef → the canvas-area div (the overflow-hidden scroll viewport).
+  // contentRef  → the wrapper div around the canvas that receives the transform.
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const {
     currentImage,
@@ -20,6 +27,15 @@ export function ImageWorkspace() {
   const { canvasRef, isRendering, containerHeight } =
     useCanvasRenderer(currentImage);
 
+  // Called unconditionally — before the early return — so hook call order is
+  // stable. enabled=false and resetKey=null are safe no-ops inside the hook.
+  const { scale, offset, isPanning, isZoomed, reset, bind } = usePanZoom({
+    viewportRef,
+    contentRef,
+    enabled: !!currentImage,
+    resetKey: currentImage?.id ?? null,
+  });
+
   const handleClearImage = () => {
     clearImage();
     setShowControls(false);
@@ -27,10 +43,29 @@ export function ImageWorkspace() {
 
   const rootProps = getRootProps();
 
+  // react-dropzone injects a 'ref' key at runtime (via refKey, default 'ref')
+  // that is NOT declared in DropzoneRootProps types. Extract it so we can merge
+  // it with viewportRef through a single callback ref, keeping drag-and-drop
+  // working while also giving usePanZoom a handle to the viewport element.
+  const dzRef = (
+    rootProps as unknown as { ref?: React.MutableRefObject<HTMLElement | null> }
+  ).ref;
+
+  // Callback ref forwarded to both react-dropzone's internal containerRef and
+  // our viewportRef. Stable as long as dzRef is stable (useRef in the library).
+  const setViewportEl = useCallback(
+    (el: HTMLDivElement | null) => {
+      viewportRef.current = el;
+      if (dzRef) dzRef.current = el;
+    },
+    [dzRef]
+  );
+
   if (!currentImage) {
     return (
       <div
         {...rootProps}
+        ref={setViewportEl}
         className={clsx(
           'relative w-full h-full min-h-[60vh] border-2 border-dashed rounded-xl transition-all duration-300',
           'flex flex-col items-center justify-center cursor-pointer',
@@ -94,9 +129,10 @@ export function ImageWorkspace() {
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
-      {/* Main Canvas Area */}
+      {/* Main Canvas Area — the pan/zoom viewport */}
       <div
         {...rootProps}
+        ref={setViewportEl}
         className={clsx(
           'relative w-full rounded-xl overflow-hidden transition-all duration-300',
           'flex justify-center bg-gray-100 dark:bg-gray-700',
@@ -104,28 +140,58 @@ export function ImageWorkspace() {
             'ring-2 ring-blue-400/50 dark:ring-blue-500/50':
               isDragActive && !isDragReject,
             'ring-2 ring-red-400/50 dark:ring-red-500/50': isDragReject,
+            'cursor-grab': isZoomed && !isPanning,
+            'cursor-grabbing': isZoomed && isPanning,
           }
         )}
         style={{
           height: containerHeight ? `${containerHeight}px` : '60vh',
           alignItems: currentImage ? 'flex-start' : 'center',
+          touchAction: isZoomed ? 'none' : undefined,
+        }}
+        {...bind}
+        onClickCapture={(e) => {
+          // Suppress click events while zoomed so a pan gesture that ends in
+          // a pointer-up (which fires a synthetic click) cannot trigger the
+          // dropzone's onClick. Lives on the viewport (not the content
+          // wrapper) so pans started from the gray margin around the canvas
+          // are covered too. Clicks inside the zoom UI must pass through,
+          // otherwise the capture-phase stop would swallow the Reset button.
+          if (!isZoomed) return;
+          if ((e.target as HTMLElement).closest('[data-zoom-ui]')) return;
+          e.stopPropagation();
         }}
       >
         <input {...getInputProps()} />
 
-        <motion.canvas
-          ref={canvasRef}
-          role="img"
-          aria-label={`Preview of ${currentImage.name} with EXIF overlay`}
-          className="rounded-lg shadow-lg"
+        {/* Content wrapper — receives the pan/zoom CSS transform.
+            marginTop lives here (not on the canvas) so that the wrapper's
+            vertical center equals the viewport center:
+              wrapper center = 20 + canvasHeight/2
+              viewport center = containerHeight/2 = (canvasHeight+40)/2 = 20 + canvasHeight/2
+            With transformOrigin:'center', scale/translate anchors at the
+            viewport center, matching usePanZoom's coordinate assumption. */}
+        <div
+          ref={contentRef}
           style={{
-            imageRendering: 'auto',
-            marginTop: currentImage ? '20px' : '0px',
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+            transformOrigin: 'center',
+            marginTop: '20px',
           }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-        />
+        >
+          <motion.canvas
+            ref={canvasRef}
+            role="img"
+            aria-label={`Preview of ${currentImage.name} with EXIF overlay`}
+            className="rounded-lg shadow-lg"
+            style={{
+              imageRendering: 'auto',
+            }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
 
         {/* Processing Overlay */}
         {(isRendering || currentImage.isProcessing) && (
@@ -148,6 +214,31 @@ export function ImageWorkspace() {
                 {isDragReject ? 'Invalid file type' : 'Drop to replace image'}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Zoom indicator — visible only when zoomed in */}
+        {isZoomed && (
+          <div
+            data-zoom-ui
+            className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/75 text-white px-3 py-1.5 rounded-lg text-sm select-none"
+            onClick={(e) => e.stopPropagation()}
+            // Without this, the viewport's onPointerDown starts a pan and
+            // captures the pointer, which retargets the ensuing click to the
+            // viewport — the Reset button would never receive it.
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <span>{Math.round(scale * 100)}%</span>
+            <button
+              aria-label="Reset zoom"
+              onClick={(e) => {
+                e.stopPropagation();
+                reset();
+              }}
+              className="hover:text-gray-300 transition-colors font-medium"
+            >
+              Reset
+            </button>
           </div>
         )}
       </div>
