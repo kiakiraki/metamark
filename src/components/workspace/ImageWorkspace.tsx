@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -7,8 +7,6 @@ import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
 import { usePanZoom } from '@/hooks/usePanZoom';
 
 export function ImageWorkspace() {
-  const [showControls, setShowControls] = useState(false);
-
   // Refs for pan/zoom — must be created unconditionally (Rules of Hooks).
   // viewportRef → the canvas-area div (the overflow-hidden scroll viewport).
   // contentRef  → the wrapper div around the canvas that receives the transform.
@@ -38,7 +36,6 @@ export function ImageWorkspace() {
 
   const handleClearImage = () => {
     clearImage();
-    setShowControls(false);
   };
 
   const rootProps = getRootProps();
@@ -124,11 +121,7 @@ export function ImageWorkspace() {
   }
 
   return (
-    <div
-      className="relative w-full h-full"
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
+    <div className="relative w-full h-full">
       {/* Main Canvas Area — the pan/zoom viewport */}
       <div
         {...rootProps}
@@ -243,25 +236,17 @@ export function ImageWorkspace() {
         )}
       </div>
 
-      {/* Floating Controls */}
-      <AnimatePresence>
-        {showControls && (
-          <motion.div
-            className="absolute top-4 right-4 flex space-x-2"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <button
-              onClick={handleClearImage}
-              className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-lg"
-            >
-              Remove
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Floating Controls — always visible: a hover-gated button is
+          unreachable for keyboard and touch users (WCAG 2.1; prior review
+          M-15), and the info bar below is permanent anyway. */}
+      <div className="absolute top-4 right-4 flex space-x-2">
+        <button
+          onClick={handleClearImage}
+          className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        >
+          Remove
+        </button>
+      </div>
 
       {/* Image Info Bar */}
       <div className="absolute bottom-4 left-4 bg-black/75 dark:bg-gray-900/90 text-white px-4 py-2 rounded-lg text-sm">
