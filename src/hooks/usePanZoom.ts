@@ -83,6 +83,19 @@ export function zoomAt(
   content: ContentSize
 ): PanZoomState {
   const nextScale = clampScale(nextScaleRaw);
+  // Snap back to the centered identity state at minimum zoom. Cursor-anchored
+  // zoom-out can otherwise reach scale 1 with a residual offset — and at 1x
+  // panning is disabled and the Reset affordance hidden, so the image would
+  // sit off-center with no visible way to recover. Checked before the
+  // same-scale early return so an off-center 1x state also self-heals on the
+  // next wheel-out tick.
+  if (nextScale === MIN_SCALE) {
+    return prev.scale === MIN_SCALE &&
+      prev.offset.x === 0 &&
+      prev.offset.y === 0
+      ? prev
+      : IDENTITY_STATE;
+  }
   if (nextScale === prev.scale) return prev;
 
   const ratio = nextScale / prev.scale;

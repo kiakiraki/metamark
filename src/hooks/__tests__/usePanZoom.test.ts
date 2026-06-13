@@ -104,6 +104,37 @@ describe('zoomAt', () => {
     expect(next).toEqual(IDENTITY_STATE);
   });
 
+  it('snaps the offset back to center when zooming out to MIN_SCALE off-center', () => {
+    // Zoom in anchored at an off-center cursor, pan would leave an offset;
+    // zooming back out to 1x at the same off-center cursor must not strand
+    // the image off-center (at 1x panning is disabled and Reset is hidden).
+    const zoomed = zoomAt(
+      IDENTITY_STATE,
+      { x: 100, y: 60 },
+      2,
+      VIEWPORT,
+      CONTENT
+    );
+    expect(zoomed.offset).not.toEqual({ x: 0, y: 0 });
+
+    const backTo1x = zoomAt(zoomed, { x: 100, y: 60 }, 1, VIEWPORT, CONTENT);
+    expect(backTo1x).toEqual(IDENTITY_STATE);
+  });
+
+  it('self-heals an off-center 1x state on the next zoom-out tick', () => {
+    // Defensive: should this state ever exist, a further wheel-out must not
+    // hit the same-scale early return and freeze it in place.
+    const corrupt = { scale: 1, offset: { x: 40, y: -20 } };
+    const next = zoomAt(corrupt, { x: 0, y: 0 }, 0.9, VIEWPORT, CONTENT);
+    expect(next).toEqual(IDENTITY_STATE);
+  });
+
+  it('returns the same identity reference when already centered at 1x', () => {
+    const prev = { ...IDENTITY_STATE };
+    const next = zoomAt(prev, { x: 100, y: 50 }, 0.5, VIEWPORT, CONTENT);
+    expect(next).toBe(prev);
+  });
+
   it('clamps to MAX_SCALE when zooming far in', () => {
     const next = zoomAt(
       IDENTITY_STATE,
