@@ -14,16 +14,24 @@ function getMeasureContext(): CanvasRenderingContext2D | null {
   return measureCtx;
 }
 
-// Font load promise cache to avoid redundant document.fonts.load() calls
+// Font load promise cache to avoid redundant document.fonts.load() calls.
+// The cache key incorporates the sorted unique characters of the text sample
+// so that unicode-range-split fonts (e.g. DotGothic16 japanese slices) load
+// every required slice. Normalising to unique-sorted chars keeps the cache
+// bounded while maximising hit rate for permutations of the same characters.
 const fontLoadCache = new Map<string, Promise<FontFace[]>>();
 
-function loadFontCached(spec: string): Promise<FontFace[]> {
-  const cached = fontLoadCache.get(spec);
+export function loadFontCached(
+  spec: string,
+  text?: string
+): Promise<FontFace[]> {
+  const key = text ? `${spec}|${[...new Set(text)].sort().join('')}` : spec;
+  const cached = fontLoadCache.get(key);
   if (cached) return cached;
   const fonts = typeof document !== 'undefined' ? document.fonts : null;
   if (!fonts?.load) return Promise.resolve([]);
-  const promise = fonts.load(spec);
-  fontLoadCache.set(spec, promise);
+  const promise = text ? fonts.load(spec, text) : fonts.load(spec);
+  fontLoadCache.set(key, promise);
   return promise;
 }
 
@@ -380,9 +388,16 @@ export class CanvasRenderer {
     );
     ctx.drawImage(drawableSource, drawX, drawY, drawWidth, drawHeight);
 
-    // Load required fonts declared by the template
+    // Load required fonts declared by the template.
+    // Build a sample text from all non-null exif values so that
+    // unicode-range-split fonts (e.g. DotGothic16 japanese slices) pre-load
+    // the correct subset before the canvas draw calls below.
     if (template.fontRequirements?.length) {
       try {
+        const sampleText =
+          Object.values(exifData)
+            .filter((v): v is string => typeof v === 'string' && v.length > 0)
+            .join('') || undefined;
         const baseFontSize = Math.max(
           12,
           template.style.fontSize * scaleFactor
@@ -396,7 +411,10 @@ export class CanvasRenderer {
                   ? Math.max(baseFontSize * 1.6, baseFontSize + 6)
                   : baseFontSize;
               const prefix = w !== 400 ? `${w} ` : '';
-              return loadFontCached(`${prefix}${fontSize}px ${req.family}`);
+              return loadFontCached(
+                `${prefix}${fontSize}px ${req.family}`,
+                sampleText
+              );
             })
           );
         });
