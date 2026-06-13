@@ -254,6 +254,59 @@ describe('PreviewContextMenu', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('does not close on the defaultPrevented contextmenu event that opened it', () => {
+    const onClose = vi.fn();
+    render(
+      <PreviewContextMenu
+        open={true}
+        position={POSITION}
+        items={makeItems()}
+        onClose={onClose}
+      />
+    );
+
+    // The opener calls preventDefault() to suppress the native menu; because
+    // React flushes passive effects in a microtask, the window listener is
+    // attached before that same event finishes bubbling to window.
+    const opener = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+    });
+    opener.preventDefault();
+    fireEvent(document.body, opener);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // An unrelated (non-prevented) right-click elsewhere still closes.
+    fireEvent(
+      document.body,
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on scroll only after the rAF-deferred listener attaches (stale scrolls pass)', async () => {
+    const onClose = vi.fn();
+    render(
+      <PreviewContextMenu
+        open={true}
+        position={POSITION}
+        items={makeItems()}
+        onClose={onClose}
+      />
+    );
+
+    // Scroll events are delivered in the rendering steps, so one queued just
+    // before the menu opened arrives before our rAF callback — it must not
+    // close the menu.
+    fireEvent.scroll(window);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // After a frame, the listener is live and genuine scrolls close the menu.
+    await act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    fireEvent.scroll(window);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('squelches the click following a dismissal pointerdown, but not later clicks', async () => {
     const onClose = vi.fn();
     const underlyingClick = vi.fn();

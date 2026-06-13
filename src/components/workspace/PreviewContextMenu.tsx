@@ -87,7 +87,10 @@ export function PreviewContextMenu({
   useEffect(() => {
     if (!open || !ready) return;
     const firstEnabled = itemRefs.current.find((ref) => ref && !ref.disabled);
-    firstEnabled?.focus();
+    // preventScroll: the menu is position:fixed and already clamped into the
+    // viewport; letting focus() scroll would trip the capture-phase scroll
+    // listener above, which closes the menu.
+    firstEnabled?.focus({ preventScroll: true });
   }, [open, ready]);
 
   // M-14: outside-close via pointerdown (covers touch) + contextmenu;
@@ -125,15 +128,34 @@ export function PreviewContextMenu({
     };
     const handleContextMenu = (e: MouseEvent) => {
       if (menuRef.current?.contains(e.target as Node)) return;
+      // Skip the very event that opened this menu. React 19 flushes passive
+      // effects in a microtask, and microtask checkpoints run between
+      // listener invocations of the same dispatch — so this listener attaches
+      // BEFORE the opening right-click finishes bubbling to window, and would
+      // otherwise close the menu in the same dispatch that opened it.
+      // The opener is identifiable: it must call preventDefault() to suppress
+      // the native context menu; an unrelated right-click elsewhere is not
+      // defaultPrevented and still closes us.
+      if (e.defaultPrevented) return;
       onClose();
     };
     const handleScroll = () => onClose();
 
     window.addEventListener('pointerdown', handlePointer);
     window.addEventListener('contextmenu', handleContextMenu);
-    window.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', handleScroll);
+    // Scroll events are delivered asynchronously, during the rendering
+    // steps — a scroll that happened just BEFORE the menu opened (trackpad
+    // momentum, or a programmatic scroll-into-view) is dispatched in the
+    // frame after we mount and would close the menu immediately. The spec
+    // runs "scroll steps" before rAF callbacks in the same rendering update,
+    // so attaching from inside requestAnimationFrame deterministically lets
+    // any such stale scroll event pass unobserved.
+    const rafId = requestAnimationFrame(() => {
+      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('resize', handleScroll);
+    });
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener('pointerdown', handlePointer);
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('scroll', handleScroll, true);
