@@ -5,16 +5,13 @@ import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
 import { usePanZoom } from '@/hooks/usePanZoom';
+import { useImageExport } from '@/hooks/useImageExport';
+import { useToast } from '@/hooks/useToast';
+import { PreviewContextMenu, type ContextMenuItem } from './PreviewContextMenu';
 
 export function ImageWorkspace() {
-  const [showControls, setShowControls] = useState(false);
-
-  // Refs for pan/zoom — must be created unconditionally (Rules of Hooks).
-  // viewportRef → the canvas-area div (the overflow-hidden scroll viewport).
-  // contentRef  → the wrapper div around the canvas that receives the transform.
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-
+  // useImageUpload first: currentImage is needed by the "adjust state in
+  // render" block below, which must reference it before usePanZoom etc.
   const {
     currentImage,
     clearImage,
@@ -24,8 +21,29 @@ export function ImageWorkspace() {
     isDragReject,
   } = useImageUpload();
 
+  const [showControls, setShowControls] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // "Adjust state in render": close the context menu synchronously when the
+  // image is swapped out (same pattern as usePanZoom's resetKey handling).
+  const [prevImageId, setPrevImageId] = useState<string | undefined>(
+    currentImage?.id
+  );
+  if (prevImageId !== currentImage?.id) {
+    setPrevImageId(currentImage?.id);
+    if (menu !== null) setMenu(null);
+  }
+
+  // Refs for pan/zoom — must be created unconditionally (Rules of Hooks).
+  // viewportRef → the canvas-area div (the overflow-hidden scroll viewport).
+  // contentRef  → the wrapper div around the canvas that receives the transform.
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
   const { canvasRef, isRendering, containerHeight } =
     useCanvasRenderer(currentImage);
+
+  const { exportImage, canExport } = useImageExport();
+  const toast = useToast();
 
   // Called unconditionally — before the early return — so hook call order is
   // stable. enabled=false and resetKey=null are safe no-ops inside the hook.
@@ -39,7 +57,34 @@ export function ImageWorkspace() {
   const handleClearImage = () => {
     clearImage();
     setShowControls(false);
+    setMenu(null);
   };
+
+  // Disabled when the Clipboard API lacks image-write support (e.g. Firefox
+  // without dom.events.asyncClipboard.clipboardItem enabled, or HTTP).
+  const canCopyToClipboard =
+    typeof ClipboardItem !== 'undefined' && !!navigator.clipboard?.write;
+
+  const handleCopyImage = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': new Promise<Blob>((resolve, reject) =>
+            canvas.toBlob(
+              (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+              'image/png'
+            )
+          ),
+        }),
+      ]);
+      toast.success('Image copied to clipboard');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      toast.error('Copy failed');
+    }
+  }, [canvasRef, toast]);
 
   const rootProps = getRootProps();
 
@@ -161,6 +206,13 @@ export function ImageWorkspace() {
           if ((e.target as HTMLElement).closest('[data-zoom-ui]')) return;
           e.stopPropagation();
         }}
+        // onContextMenu placed after the rootProps/bind spreads so it is not
+        // clobbered. usePanZoom's onPointerDown already ignores e.button !== 0,
+        // so right-click does not start a pan gesture.
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
       >
         <input {...getInputProps()} />
 
@@ -275,6 +327,45 @@ export function ImageWorkspace() {
           </span>
         </div>
       </div>
+
+      {/* Right-click context menu — position:fixed, so z-50 stacking is the
+          only tree-placement concern. Rendered in the has-image branch so all
+          action handlers have access to canvasRef, exportImage, etc. */}
+      <PreviewContextMenu
+        open={menu !== null}
+        position={menu ?? { x: 0, y: 0 }}
+        onClose={() => setMenu(null)}
+        items={
+          [
+            {
+              key: 'copy',
+              label: 'Copy image',
+              disabled: !canCopyToClipboard,
+              onSelect: handleCopyImage,
+            },
+            {
+              key: 'download',
+              label: 'Download image',
+              disabled: !canExport,
+              onSelect: () => {
+                void exportImage();
+              },
+            },
+            {
+              key: 'reset-zoom',
+              label: 'Reset zoom',
+              disabled: !isZoomed,
+              onSelect: reset,
+            },
+            {
+              key: 'remove',
+              label: 'Remove image',
+              variant: 'danger',
+              onSelect: handleClearImage,
+            },
+          ] satisfies ContextMenuItem[]
+        }
+      />
     </div>
   );
 }
