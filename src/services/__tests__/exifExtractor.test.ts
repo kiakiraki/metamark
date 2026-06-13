@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeExifData } from '../exifExtractor';
+import {
+  normalizeExifData,
+  calculateShutterSpeed,
+  formatDateTime,
+} from '../exifExtractor';
 import type { ExifData } from '@/types/exif';
 
 describe('normalizeExifData', () => {
@@ -128,5 +132,67 @@ describe('normalizeExifData', () => {
     const result = normalizeExifData(exifData);
     expect(result.cameraMake).toBe('Sony');
     expect(result.cameraModel).toBe('A7IV');
+  });
+});
+
+describe('calculateShutterSpeed', () => {
+  it('returns undefined for undefined input', () => {
+    expect(calculateShutterSpeed(undefined)).toBeUndefined();
+  });
+
+  it('formats long exposures as plain seconds (>= 1s)', () => {
+    expect(calculateShutterSpeed(2)).toBe('2s');
+  });
+
+  it('returns 1/2s for exactly 0.5s', () => {
+    expect(calculateShutterSpeed(0.5)).toBe('1/2s');
+  });
+
+  it('returns 1/3s for 1/3 (≈0.3333)', () => {
+    expect(calculateShutterSpeed(1 / 3)).toBe('1/3s');
+  });
+
+  it('returns 1/250s for 0.004', () => {
+    expect(calculateShutterSpeed(0.004)).toBe('1/250s');
+  });
+
+  it('returns decimal 0.6s for 0.6 (not 1/2s)', () => {
+    expect(calculateShutterSpeed(0.6)).toBe('0.6s');
+  });
+
+  it('returns decimal 0.8s for 0.8 (not 1/1s)', () => {
+    expect(calculateShutterSpeed(0.8)).toBe('0.8s');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('parses EXIF-format string "2024:06:15 14:30:00"', () => {
+    const result = formatDateTime('2024:06:15 14:30:00');
+    expect(result).not.toBeNull();
+    expect(typeof result).toBe('string');
+    // Should contain the year and not be a raw Date object
+    expect(result).toContain('2024');
+  });
+
+  it('formats a Date instance to a locale string', () => {
+    const d = new Date(2024, 5, 15, 14, 30, 0); // June 15, 2024
+    const result = formatDateTime(d);
+    expect(result).not.toBeNull();
+    expect(typeof result).toBe('string');
+    expect(result).toContain('2024');
+  });
+
+  it('returns null for an invalid Date instance', () => {
+    expect(formatDateTime(new Date('not-a-date'))).toBeNull();
+  });
+
+  it('returns null for undefined input', () => {
+    expect(formatDateTime(undefined)).toBeNull();
+  });
+
+  it('does not throw for an invalid string value', () => {
+    expect(() => formatDateTime('garbage')).not.toThrow();
+    const result = formatDateTime('garbage');
+    expect(typeof result === 'string' || result === null).toBe(true);
   });
 });

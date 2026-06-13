@@ -13,6 +13,7 @@ describe('formatSonyModel', () => {
       ['ILCE-7C', 'α7C'],
       ['ILCE-6700', 'α6700'],
       ['ILCE-9M3', 'α9 III'],
+      ['ILCE-7CR', 'α7CR'],
     ])('%s → %s', (input, expected) => {
       expect(formatSonyModel('SONY', input)).toBe(expected);
     });

@@ -9,7 +9,7 @@ const ROMAN_MARKS: Record<string, string> = {
   '9': 'IX',
 };
 
-const ILCE_PATTERN = /^ILCE-(\d+)([RSC])?(?:M(\d+))?$/;
+const ILCE_PATTERN = /^ILCE-(\d+)(CR|[RSC])?(?:M(\d+))?$/;
 const ILCA_PATTERN = /^ILCA-(\d+)(?:M(\d+))?$/;
 const DSC_PATTERN = /^DSC-([A-Z]+\d+[A-Z]*?)(?:M(\d+))?$/;
 

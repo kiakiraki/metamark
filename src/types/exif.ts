@@ -15,7 +15,7 @@ export interface ExifData {
     exposureTime?: number;
   };
   metadata?: {
-    dateTime?: string;
+    dateTime?: string | Date;
     gps?: {
       latitude?: number;
       longitude?: number;

@@ -2,15 +2,27 @@ import exifr from 'exifr';
 import type { ExifData, NormalizedExifData } from '@/types/exif';
 import { formatSonyModel } from './cameraNameFormatter';
 
-function calculateShutterSpeed(exposureTime?: number): string | undefined {
+export function calculateShutterSpeed(
+  exposureTime?: number
+): string | undefined {
   if (!exposureTime) return undefined;
 
   if (exposureTime >= 1) {
     return `${exposureTime}s`;
-  } else {
-    const denominator = Math.round(1 / exposureTime);
+  }
+
+  const denominator = Math.round(1 / exposureTime);
+  const relativeError = Math.abs(1 / denominator - exposureTime) / exposureTime;
+  if (denominator >= 1 && relativeError <= 0.05) {
     return `1/${denominator}s`;
   }
+
+  // Fall back to decimal notation; avoid rounding to "1.0" or "0.0"
+  let decimal = exposureTime.toFixed(1);
+  if (decimal === '1.0' || decimal === '0.0') {
+    decimal = exposureTime.toFixed(2);
+  }
+  return `${decimal}s`;
 }
 
 function formatCamera(camera?: {
@@ -80,13 +92,26 @@ function formatLocation(iptc?: {
   return parts.join(', ');
 }
 
-function formatDateTime(dateTime?: string): string | null {
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+};
+
+export function formatDateTime(dateTime?: string | Date): string | null {
   if (!dateTime) return null;
 
   try {
-    const date = new Date(dateTime);
+    // Date instance path — exifr revives some fields as Date objects
+    if (dateTime instanceof Date) {
+      if (isNaN(dateTime.getTime())) return null;
+      return dateTime.toLocaleDateString('ja-JP', DATE_FORMAT_OPTIONS);
+    }
 
-    // Check if the date is valid
+    // String path
+    const date = new Date(dateTime);
     if (isNaN(date.getTime())) {
       // Try parsing EXIF date format (YYYY:MM:DD HH:mm:ss)
       const exifMatch = dateTime.match(
@@ -102,27 +127,14 @@ function formatDateTime(dateTime?: string): string | null {
           parseInt(minute),
           parseInt(second)
         );
-
-        return parsedDate.toLocaleDateString('ja-JP', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        return parsedDate.toLocaleDateString('ja-JP', DATE_FORMAT_OPTIONS);
       }
       return dateTime;
     }
 
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return date.toLocaleDateString('ja-JP', DATE_FORMAT_OPTIONS);
   } catch {
-    return dateTime;
+    return typeof dateTime === 'string' ? dateTime : null;
   }
 }
 
@@ -151,7 +163,7 @@ export async function extractExifData(file: File): Promise<ExifData> {
         shutterSpeed: calculateShutterSpeed(rawExif.ExposureTime),
       },
       metadata: {
-        dateTime: rawExif.DateTime || rawExif.DateTimeOriginal,
+        dateTime: rawExif.DateTimeOriginal || rawExif.ModifyDate,
         gps:
           rawExif.latitude && rawExif.longitude
             ? {
