@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasRenderer } from '../canvasRenderer';
 
 interface FillCall {
@@ -185,5 +185,44 @@ describe('CanvasRenderer.calculateOptimalSize', () => {
     const result = CanvasRenderer.calculateOptimalSize(6000, 4000);
     const resultRatio = result.width / result.height;
     expect(Math.abs(resultRatio - originalRatio)).toBeLessThan(0.01);
+  });
+});
+
+// loadFontCached is exported for testing. jsdom does not ship document.fonts,
+// so each test defines it as a stub. vi.resetModules() + dynamic import gives
+// each test a fresh module-level fontLoadCache so cache tests are independent.
+describe('loadFontCached', () => {
+  let mockLoad: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockLoad = vi.fn().mockResolvedValue([]);
+    Object.defineProperty(document, 'fonts', {
+      value: { load: mockLoad },
+      configurable: true,
+      writable: true,
+    });
+    vi.resetModules();
+  });
+
+  it('passes both spec and text arguments to document.fonts.load', async () => {
+    const { loadFontCached } = await import('../canvasRenderer');
+    await loadFontCached('16px DotGothic16', 'カメラ');
+    expect(mockLoad).toHaveBeenCalledOnce();
+    expect(mockLoad).toHaveBeenCalledWith('16px DotGothic16', 'カメラ');
+  });
+
+  it('deduplicates when the same unique char set is requested (cache hit on reordered text)', async () => {
+    const { loadFontCached } = await import('../canvasRenderer');
+    await loadFontCached('16px DotGothic16', 'ab');
+    await loadFontCached('16px DotGothic16', 'ba');
+    // 'ab' and 'ba' normalise to the same sorted-unique key → only one load call
+    expect(mockLoad).toHaveBeenCalledOnce();
+  });
+
+  it('calls fonts.load again when text contains different characters (cache miss)', async () => {
+    const { loadFontCached } = await import('../canvasRenderer');
+    await loadFontCached('16px DotGothic16', 'abc');
+    await loadFontCached('16px DotGothic16', 'xyz');
+    expect(mockLoad).toHaveBeenCalledTimes(2);
   });
 });
