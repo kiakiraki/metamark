@@ -100,7 +100,7 @@ src/
 
 ## 📋 Requirements
 
-- Node.js 20+
+- Node.js 22+
 - Modern browser with Canvas API support
 - JavaScript enabled (client-side processing)
 
