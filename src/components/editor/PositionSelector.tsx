@@ -1,15 +1,13 @@
-import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { PositionPreset } from '@/types/template';
 
-const POSITION_OPTIONS: { key: PositionPreset; label: string; icon: string }[] =
-  [
-    { key: 'top-left', label: 'Top Left', icon: '↖️' },
-    { key: 'top-right', label: 'Top Right', icon: '↗️' },
-    { key: 'bottom-left', label: 'Bottom Left', icon: '↙️' },
-    { key: 'bottom-right', label: 'Bottom Right', icon: '↘️' },
-  ];
+const CORNERS: { key: PositionPreset; label: string; pos: string }[] = [
+  { key: 'top-left', label: 'Top Left', pos: 'left-1.5 top-1.5' },
+  { key: 'top-right', label: 'Top Right', pos: 'right-1.5 top-1.5' },
+  { key: 'bottom-left', label: 'Bottom Left', pos: 'bottom-1.5 left-1.5' },
+  { key: 'bottom-right', label: 'Bottom Right', pos: 'bottom-1.5 right-1.5' },
+];
 
 export function PositionSelector() {
   const currentPosition = useSettingsStore(
@@ -23,56 +21,53 @@ export function PositionSelector() {
     updateCanvasSettings({ overlayPosition: position });
   };
 
+  const activeLabel = CORNERS.find((c) => c.key === currentPosition)?.label;
+
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+    <div className="space-y-3">
+      <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
         Overlay Position
       </h3>
 
-      {/* Visual Grid Selector */}
-      <div className="grid grid-cols-2 gap-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg transition-colors">
-        {POSITION_OPTIONS.map((option) => {
-          const isSelected = currentPosition === option.key;
+      {/* A single photo frame; click a corner chip to place the overlay. */}
+      <div className="relative mx-auto aspect-[3/2] w-full max-w-[220px] overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-[#3a4150] to-[#23252c]">
+        {/* framing guides */}
+        <div className="pointer-events-none absolute inset-3 rounded border border-dashed border-white/10" />
 
+        {CORNERS.map((corner) => {
+          const isSelected = currentPosition === corner.key;
           return (
-            <motion.button
-              key={option.key}
-              onClick={() => handlePositionChange(option.key)}
+            <button
+              key={corner.key}
+              onClick={() => handlePositionChange(corner.key)}
+              aria-label={corner.label}
+              aria-pressed={isSelected}
               className={clsx(
-                'relative p-4 rounded-lg border-2 transition-all duration-200',
-                'flex items-center justify-center min-h-[80px]',
-                'touch-manipulation active:scale-95',
-                {
-                  'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300':
-                    isSelected,
-                  'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700':
-                    !isSelected,
-                }
+                'absolute h-7 w-12 rounded transition-all duration-150',
+                'focus:outline-none focus:ring-2 focus:ring-accent/70',
+                corner.pos,
+                isSelected
+                  ? 'bg-accent shadow-lg shadow-accent/30'
+                  : 'bg-white/10 hover:bg-white/25 active:scale-95'
               )}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.96 }}
             >
-              <div className="text-center">
-                <div className="text-2xl mb-2">{option.icon}</div>
-                <div className="text-sm font-medium">{option.label}</div>
-              </div>
-
-              {isSelected && (
-                <motion.div
-                  className="absolute inset-0 border-2 border-blue-500 rounded-lg"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2 }}
-                />
-              )}
-            </motion.button>
+              <span className="sr-only">{corner.label}</span>
+              <span
+                className={clsx(
+                  'block h-full w-full rounded',
+                  isSelected ? 'opacity-0' : 'opacity-100'
+                )}
+              >
+                <span className="mx-auto mt-2 block h-[3px] w-6 rounded-full bg-white/40" />
+                <span className="mx-auto mt-1 block h-[2px] w-4 rounded-full bg-white/25" />
+              </span>
+            </button>
           );
         })}
       </div>
 
-      {/* Text Description */}
-      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-        Choose where the EXIF overlay will appear on your image
+      <p className="text-center font-mono text-[11px] uppercase tracking-wider text-zinc-500">
+        {activeLabel}
       </p>
     </div>
   );

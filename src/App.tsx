@@ -6,49 +6,55 @@ import { LocationOverrideField } from '@/components/editor/LocationOverrideField
 import { ExportControls } from '@/components/export/ExportControls';
 import { ToastContainer } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ApertureIcon } from '@/components/ui/icons';
 
 export function App() {
   return (
     <MotionConfig reducedMotion="user">
-      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
-        <div className="container mx-auto px-4 py-8">
-          <header className="mb-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              MetaMark
-            </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
-              Add beautiful EXIF metadata overlays to your photos
-            </p>
-          </header>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {/* Main Workspace */}
-            <div className="lg:col-span-3">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 h-full transition-colors">
-                <ErrorBoundary>
-                  <ImageWorkspace />
-                </ErrorBoundary>
+      <main className="min-h-screen">
+        {/* Top bar */}
+        <header className="border-b border-white/[0.07]">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            <div className="flex items-baseline gap-3">
+              <div className="flex items-center gap-2">
+                <ApertureIcon size={22} className="text-accent" />
+                <span className="font-display text-xl font-semibold italic tracking-tight text-zinc-100">
+                  MetaMark
+                </span>
               </div>
+              <span className="hidden font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500 sm:inline">
+                EXIF overlay studio
+              </span>
             </div>
+          </div>
+        </header>
 
-            {/* Controls Sidebar */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+            {/* Main Workspace — the stage. No card chrome so the photo owns
+                the space. */}
+            <ErrorBoundary>
+              <ImageWorkspace />
+            </ErrorBoundary>
+
+            {/* Controls Sidebar — one panel, sections divided by hairlines. */}
+            <aside className="h-fit divide-y divide-white/[0.06] rounded-xl border border-white/[0.08] bg-surface">
+              <section className="p-5">
                 <TemplateSelector />
-              </div>
+              </section>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
+              <section className="p-5">
                 <LensOverrideField />
-              </div>
+              </section>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
+              <section className="p-5">
                 <LocationOverrideField />
-              </div>
+              </section>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 transition-colors">
+              <section className="p-5">
                 <ExportControls />
-              </div>
-            </div>
+              </section>
+            </aside>
           </div>
         </div>
 

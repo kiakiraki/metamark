@@ -1,10 +1,10 @@
-import { motion } from 'framer-motion';
 import { useSelectedImage } from '@/stores/imageStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import clsx from 'clsx';
 import { useEffectiveTemplate } from '@/hooks/useEffectiveTemplate';
 import { useEffectiveExifData } from '@/hooks/useEffectiveExifData';
 import { useImageExport } from '@/hooks/useImageExport';
+import { DownloadIcon } from '@/components/ui/icons';
 
 export function ExportControls() {
   const { exportImage, isExporting, canExport } = useImageExport();
@@ -17,30 +17,38 @@ export function ExportControls() {
     (state) => state.updateCanvasSettings
   );
 
+  const statusMessage = !selectedImage
+    ? 'Select an image to export'
+    : !selectedTemplate
+      ? 'Choose a template'
+      : !exifData
+        ? 'Reading image metadata…'
+        : null;
+
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+    <div className="space-y-5">
+      <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
         Export
       </h3>
 
       {/* Format Settings */}
-      <div className="space-y-3">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium uppercase tracking-wider text-zinc-400">
           Format
         </h4>
-        <div className="flex space-x-2">
+        <div className="inline-flex rounded-lg border border-white/10 bg-surface-2 p-0.5">
           {(['png', 'jpeg'] as const).map((format) => (
             <button
               key={format}
               onClick={() => updateCanvasSettings({ format })}
-              className={clsx('px-3 py-1 text-sm rounded border', {
-                'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300':
-                  canvasSettings.format === format,
-                'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600':
-                  canvasSettings.format !== format,
-              })}
+              className={clsx(
+                'rounded-md px-4 py-1.5 font-mono text-xs font-medium uppercase tracking-wider transition-colors',
+                canvasSettings.format === format
+                  ? 'bg-accent text-black'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              )}
             >
-              {format.toUpperCase()}
+              {format}
             </button>
           ))}
         </div>
@@ -48,35 +56,35 @@ export function ExportControls() {
 
       {/* Quality Settings */}
       {canvasSettings.format === 'jpeg' && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Quality
-          </h4>
-          <div className="space-y-2">
-            <label htmlFor="quality-slider" className="sr-only">
-              JPEG Quality
-            </label>
-            <input
-              id="quality-slider"
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.1}
-              value={canvasSettings.quality}
-              onChange={(e) =>
-                updateCanvasSettings({ quality: parseFloat(e.target.value) })
-              }
-              className="w-full"
-            />
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+              Quality
+            </h4>
+            <span className="font-mono text-xs text-accent">
               {Math.round(canvasSettings.quality * 100)}%
-            </div>
+            </span>
           </div>
+          <label htmlFor="quality-slider" className="sr-only">
+            JPEG Quality
+          </label>
+          <input
+            id="quality-slider"
+            type="range"
+            min={0.1}
+            max={1}
+            step={0.1}
+            value={canvasSettings.quality}
+            onChange={(e) =>
+              updateCanvasSettings({ quality: parseFloat(e.target.value) })
+            }
+            className="w-full accent-accent"
+          />
         </div>
       )}
 
       {/* Export Button */}
-      <motion.button
+      <button
         onClick={() => exportImage()}
         disabled={!canExport || isExporting}
         aria-busy={isExporting}
@@ -92,28 +100,34 @@ export function ExportControls() {
                   : 'Download image with overlay'
         }
         className={clsx(
-          'w-full py-3 px-4 rounded-lg font-medium text-center transition-colors',
-          {
-            'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600':
-              canExport && !isExporting,
-            'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400':
-              !canExport || isExporting,
-          }
+          'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-all',
+          canExport && !isExporting
+            ? 'bg-accent text-black hover:brightness-110 active:scale-[0.99]'
+            : 'cursor-not-allowed bg-white/5 text-zinc-600'
         )}
-        whileHover={canExport && !isExporting ? { scale: 1.02 } : {}}
-        whileTap={canExport && !isExporting ? { scale: 0.98 } : {}}
       >
-        {isExporting ? 'Exporting...' : 'Download Image'}
-      </motion.button>
+        {isExporting ? (
+          <>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/40 border-t-black" />
+            Exporting…
+          </>
+        ) : (
+          <>
+            <DownloadIcon size={18} />
+            Download Image
+          </>
+        )}
+      </button>
 
       {/* Status */}
-      <div className="text-xs text-gray-500 space-y-1">
-        {!selectedImage && <p>• Select an image to export</p>}
-        {selectedImage && !selectedTemplate && <p>• Choose a template</p>}
-        {selectedImage && selectedTemplate && !exifData && (
-          <p>• Reading image metadata...</p>
+      <div className="font-mono text-[11px] uppercase tracking-wider">
+        {statusMessage && <p className="text-zinc-500">{statusMessage}</p>}
+        {canExport && (
+          <p className="flex items-center gap-1.5 text-accent">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            Ready to export
+          </p>
         )}
-        {canExport && <p className="text-green-600">✓ Ready to export</p>}
       </div>
     </div>
   );

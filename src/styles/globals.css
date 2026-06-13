@@ -1,21 +1,44 @@
 @import 'tailwindcss';
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* ---------------------------------------------------------------------------
+ * Darkroom theme tokens.
+ * The app is permanently dark (index.html pins <html class="dark">), so the
+ * palette is authored dark-only: a near-black neutral stage that keeps photo
+ * colors honest, hairline borders instead of drop shadows, and a single
+ * "safelight" amber accent.
+ * ------------------------------------------------------------------------- */
 
-:root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-}
+@theme {
+  --color-ink: #0a0a0b; /* page background */
+  --color-surface: #131316; /* panels */
+  --color-surface-2: #1c1c20; /* nested / inset areas */
+  --color-line: #232328; /* hairline borders on surface */
+  --color-accent: #e8a33d; /* safelight amber */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: 'Geist Variable', system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', monospace;
+  --font-display: 'Besley Variable', serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--color-ink);
+  /* Faint top glow + amber breath in the corner: atmosphere, not decoration. */
+  background-image:
+    radial-gradient(
+      1100px 520px at 50% -8%,
+      rgb(255 255 255 / 0.045),
+      transparent 65%
+    ),
+    radial-gradient(
+      820px 480px at 92% 112%,
+      rgb(232 163 61 / 0.05),
+      transparent 60%
+    );
+  background-attachment: fixed;
+  color: #e8e8ea;
   font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+::selection {
+  background: rgb(232 163 61 / 0.35);
 }
