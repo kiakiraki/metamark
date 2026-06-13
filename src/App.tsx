@@ -6,7 +6,7 @@ import { LocationOverrideField } from '@/components/editor/LocationOverrideField
 import { ExportControls } from '@/components/export/ExportControls';
 import { ToastContainer } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ApertureIcon, LockIcon } from '@/components/ui/icons';
+import { ApertureIcon } from '@/components/ui/icons';
 
 export function App() {
   return (
@@ -25,14 +25,6 @@ export function App() {
               <span className="hidden font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500 sm:inline">
                 EXIF overlay studio
               </span>
-            </div>
-
-            <div
-              className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-surface px-3 py-1.5 font-mono text-[11px] text-zinc-400"
-              title="Your photos never leave the browser — all processing is local."
-            >
-              <LockIcon size={13} className="text-accent/80" />
-              <span className="uppercase tracking-wider">100% in-browser</span>
             </div>
           </div>
         </header>
