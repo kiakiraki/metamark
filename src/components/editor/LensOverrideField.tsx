@@ -71,18 +71,15 @@ export function LensOverrideField() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
           Lens Override
         </h3>
         <span
           className={clsx(
-            'text-xs font-medium px-2 py-0.5 rounded',
-            state === 'exif' &&
-              'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-            state === 'custom' &&
-              'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-            state === 'hidden' &&
-              'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+            'rounded px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider',
+            state === 'exif' && 'bg-white/10 text-zinc-400',
+            state === 'custom' && 'bg-accent/15 text-accent',
+            state === 'hidden' && 'bg-red-500/15 text-red-400'
           )}
         >
           {state === 'exif' && 'EXIF'}
@@ -98,11 +95,10 @@ export function LensOverrideField() {
         disabled={disabled}
         placeholder={baseLens ?? 'No lens info in EXIF'}
         className={clsx(
-          'w-full px-3 py-2 rounded-md border text-sm transition-colors',
-          'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-          'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500',
-          disabled && 'opacity-50 cursor-not-allowed'
+          'w-full rounded-md border px-3 py-2 text-sm transition-colors',
+          'border-white/10 bg-surface-2 text-zinc-100 placeholder:text-zinc-600',
+          'focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/70',
+          disabled && 'cursor-not-allowed opacity-50'
         )}
       />
 
@@ -112,9 +108,9 @@ export function LensOverrideField() {
           onClick={handleResetToExif}
           disabled={disabled || state === 'exif'}
           className={clsx(
-            'px-2 py-1 rounded text-gray-600 dark:text-gray-300',
-            'hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent'
+            'rounded px-2 py-1 text-zinc-400',
+            'transition-colors hover:bg-white/5 hover:text-zinc-200',
+            'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
           )}
         >
           Reset to EXIF
@@ -124,16 +120,16 @@ export function LensOverrideField() {
           onClick={handleHide}
           disabled={disabled || state === 'hidden'}
           className={clsx(
-            'px-2 py-1 rounded text-gray-600 dark:text-gray-300',
-            'hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent'
+            'rounded px-2 py-1 text-zinc-400',
+            'transition-colors hover:bg-white/5 hover:text-zinc-200',
+            'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
           )}
         >
           Hide field
         </button>
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-gray-400">
+      <p className="text-xs text-zinc-500">
         Override the lens name displayed on the overlay. Useful for old/manual
         lenses without EXIF lens info.
       </p>

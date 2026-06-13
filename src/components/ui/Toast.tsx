@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useToastStore } from '@/hooks/useToast';
+import { XIcon } from '@/components/ui/icons';
 
 export function ToastContainer() {
   const toasts = useToastStore((state) => state.toasts);
@@ -21,11 +22,12 @@ export function ToastContainer() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
             className={clsx(
-              'flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium cursor-pointer max-w-sm',
+              'flex max-w-sm cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium text-zinc-100 shadow-xl shadow-black/40 backdrop-blur-sm',
               {
-                'bg-green-600 text-white': toast.type === 'success',
-                'bg-red-600 text-white': toast.type === 'error',
-                'bg-blue-600 text-white': toast.type === 'info',
+                'border-emerald-500/30 bg-emerald-600/90':
+                  toast.type === 'success',
+                'border-red-500/30 bg-red-600/90': toast.type === 'error',
+                'border-white/10 bg-surface-2/95': toast.type === 'info',
               }
             )}
             onClick={() => removeToast(toast.id)}
@@ -34,13 +36,13 @@ export function ToastContainer() {
             <button
               type="button"
               aria-label="Close notification"
-              className="flex-shrink-0 rounded p-0.5 focus:outline-none focus:ring-2 focus:ring-white/70"
+              className="flex-shrink-0 rounded p-0.5 text-current/80 transition hover:text-current focus:outline-none focus:ring-2 focus:ring-white/70"
               onClick={(e) => {
                 e.stopPropagation();
                 removeToast(toast.id);
               }}
             >
-              ✕
+              <XIcon size={14} />
             </button>
           </motion.div>
         ))}
