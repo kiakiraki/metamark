@@ -262,7 +262,29 @@ export function TemplateSelector() {
 
       {/* Position Selector */}
       <div className="border-t border-white/[0.06] pt-5">
-        <PositionSelector />
+        {selectedTemplate?.customDraw === 'caption' ? (
+          <div className="space-y-2">
+            <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+              Overlay Position
+            </h3>
+            <p className="text-xs text-zinc-500">
+              Caption is fixed below the photo.
+            </p>
+          </div>
+        ) : selectedTemplate?.id === 'film' ? (
+          <div className="space-y-2">
+            <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+              Overlay Position
+            </h3>
+            <p className="text-xs text-zinc-500">
+              Film position is selected automatically for the image orientation.
+            </p>
+          </div>
+        ) : selectedTemplate?.customDraw === 'gallery-placard' ? (
+          <PositionSelector variant="gallery" />
+        ) : (
+          <PositionSelector />
+        )}
       </div>
     </div>
   );
