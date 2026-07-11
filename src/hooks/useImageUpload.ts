@@ -67,7 +67,9 @@ export function useImageUpload() {
       } catch (error: unknown) {
         if (signal.aborted) return;
         console.error('Error loading image:', error);
-        toast.error('Failed to load image.');
+        toast.error(
+          error instanceof Error ? error.message : 'Failed to load image.'
+        );
       }
     },
     [setImage, setExifData, setNormalizedData, toast]
