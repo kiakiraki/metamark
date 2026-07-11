@@ -71,7 +71,10 @@ export function LensOverrideField() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+        <h3
+          id="lens-override-label"
+          className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500"
+        >
           Lens Override
         </h3>
         <span
@@ -90,6 +93,7 @@ export function LensOverrideField() {
 
       <input
         type="text"
+        aria-labelledby="lens-override-label"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         disabled={disabled}
