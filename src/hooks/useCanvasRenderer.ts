@@ -127,8 +127,13 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
             canvasSettings.overlayPosition
           );
 
+        // Render into a canvas owned by this effect run. CanvasRenderer awaits
+        // font loading after drawing the source image, so rendering directly to
+        // the shared visible canvas would let an older run resume later and
+        // overwrite a newer preview.
+        const renderCanvas = document.createElement('canvas');
         await CanvasRenderer.render({
-          canvas: canvasRef.current,
+          canvas: renderCanvas,
           image,
           template: selectedTemplate,
           exifData,
@@ -139,6 +144,16 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
           },
         });
         if (cancelled) return;
+
+        const displayCanvas = canvasRef.current;
+        if (!displayCanvas) return;
+        displayCanvas.width = renderCanvas.width;
+        displayCanvas.height = renderCanvas.height;
+        const displayCtx = displayCanvas.getContext('2d');
+        if (!displayCtx) {
+          throw new Error('Unable to get preview canvas context');
+        }
+        displayCtx.drawImage(renderCanvas, 0, 0);
         updateCanvasDisplaySize();
       } catch (error: unknown) {
         if (!cancelled) {
