@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, type RefObject } from 'react';
 import type { ProcessedImage } from '@/types/image';
 
-export function getDisplayBounds(): {
+export function getDisplayBounds(containerWidth?: number): {
   maxDisplayWidth: number;
   maxDisplayHeight: number;
 } {
@@ -10,11 +10,15 @@ export function getDisplayBounds(): {
   const isTablet = windowWidth < 1024;
   const horizontalMargin = 40;
 
-  const maxDisplayWidth = isMobile
+  const responsiveMaxWidth = isMobile
     ? Math.min(300, windowWidth - horizontalMargin)
     : isTablet
       ? Math.min(500, windowWidth - horizontalMargin)
       : Math.min(700, windowWidth - horizontalMargin);
+  const maxDisplayWidth = Math.max(
+    1,
+    Math.min(responsiveMaxWidth, containerWidth ?? responsiveMaxWidth)
+  );
 
   const maxDisplayHeight = isMobile ? 400 : isTablet ? 500 : 600;
 
@@ -40,7 +44,10 @@ export function useResponsiveCanvas(
     const logicalHeight = canvas.height / devicePixelRatio;
     const canvasAspectRatio = logicalWidth / logicalHeight;
 
-    const { maxDisplayWidth, maxDisplayHeight } = getDisplayBounds();
+    const viewport = canvas.parentElement?.parentElement;
+    const { maxDisplayWidth, maxDisplayHeight } = getDisplayBounds(
+      viewport?.clientWidth
+    );
 
     let displayWidth, displayHeight;
 
@@ -64,6 +71,7 @@ export function useResponsiveCanvas(
 
     canvas.style.width = `${displayWidth}px`;
     canvas.style.height = `${displayHeight}px`;
+    canvas.style.maxWidth = '100%';
 
     const topMargin = 20;
     const bottomMargin = 20;
@@ -78,8 +86,18 @@ export function useResponsiveCanvas(
     };
 
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [updateCanvasDisplaySize]);
+    const viewport = canvasRef.current?.parentElement?.parentElement;
+    const resizeObserver =
+      viewport && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(handleResize)
+        : null;
+    if (viewport) resizeObserver?.observe(viewport);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      resizeObserver?.disconnect();
+    };
+  }, [canvasRef, updateCanvasDisplaySize]);
 
   return {
     containerHeight,
