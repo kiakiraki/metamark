@@ -1,6 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ImageProcessor } from '../imageProcessor';
 
+function fileFromBytes(bytes: Uint8Array<ArrayBuffer>, type: string): File {
+  return new File([bytes], 'image', { type });
+}
+
+function heicFile(width: number, height: number): File {
+  const bytes = new Uint8Array(24);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, 24);
+  bytes.set([0x69, 0x73, 0x70, 0x65], 4);
+  view.setUint32(12, width);
+  view.setUint32(16, height);
+  return fileFromBytes(bytes, 'image/heic');
+}
+
 describe('ImageProcessor.validateImageFile', () => {
   function createMockFile(type: string, size: number): File {
     const blob = new Blob(['x'.repeat(Math.min(size, 100))], { type });
@@ -33,7 +47,9 @@ describe('ImageProcessor.validateImageFile', () => {
   });
 
   it('explains the native browser requirement when HEIC decoding fails', async () => {
-    const file = createMockFile('image/heic', 1024);
+    // Needs a valid ispe box so validateImageDimensions passes and the
+    // failure happens at the Image decoding stage.
+    const file = heicFile(100, 100);
     const revokeObjectURL = vi.fn();
 
     class FailingImage {
@@ -88,10 +104,6 @@ describe('ImageProcessor.validateImageFile', () => {
 });
 
 describe('ImageProcessor.validateImageDimensions', () => {
-  function fileFromBytes(bytes: Uint8Array<ArrayBuffer>, type: string): File {
-    return new File([bytes], 'image', { type });
-  }
-
   function pngFile(width: number, height: number): File {
     const bytes = new Uint8Array(24);
     bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -111,16 +123,6 @@ describe('ImageProcessor.validateImageDimensions', () => {
     view.setUint16(9, width);
     bytes.set([0xff, 0xd9], 19);
     return fileFromBytes(bytes, 'image/jpeg');
-  }
-
-  function heicFile(width: number, height: number): File {
-    const bytes = new Uint8Array(24);
-    const view = new DataView(bytes.buffer);
-    view.setUint32(0, 24);
-    bytes.set([0x69, 0x73, 0x70, 0x65], 4);
-    view.setUint32(12, width);
-    view.setUint32(16, height);
-    return fileFromBytes(bytes, 'image/heic');
   }
 
   it.each([
