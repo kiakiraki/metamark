@@ -41,7 +41,7 @@ CI runs: lint → format:check → tsc --noEmit → test → build.
   - `exifExtractor.ts` — Reads EXIF via exifr and normalizes to display strings (ja-JP locale for dates). Routes Sony bodies through `cameraNameFormatter`.
   - `cameraNameFormatter.ts` — Rewrites Sony ILCE/ILCA/DSC model codes into the marketing α-series names (e.g. `ILCE-7M4` → `α7 IV`).
   - `canvasRenderer.ts` — Canvas drawing with dynamic height calculation, text wrapping, responsive font scaling, 4K support. Dispatches per-template rendering via the template's `customDraw` (`caption`, `technical`, `compact`, `imprint`, `gallery-placard`); the film template auto-rotates for portrait images.
-  - `imageProcessor.ts` — File validation (JPEG/PNG/HEIC, max 20MB), Blob URL lifecycle.
+  - `imageProcessor.ts` — File validation (JPEG/PNG and natively supported HEIC, max 20MB), Blob URL lifecycle.
 - **`src/stores/`** — Zustand stores. Mostly independent; the one cross-store call is `imageStore` clearing `exifStore` when the image is replaced or removed (prevents stale EXIF leaking across images).
   - `imageStore` / `templateStore` — selected image and template preset.
   - `exifStore` — raw + normalized EXIF, plus per-image `lensOverrides` / `locationOverrides` exposed via `getEffectiveNormalizedData`.

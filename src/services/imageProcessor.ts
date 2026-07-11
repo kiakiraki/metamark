@@ -22,7 +22,14 @@ export class ImageProcessor {
 
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        reject(new Error('Failed to load image'));
+        const isHeic = file.type === 'image/heic' || file.type === 'image/heif';
+        reject(
+          new Error(
+            isHeic
+              ? 'HEIC decoding is not supported by this browser. Convert the image to JPEG or PNG and try again.'
+              : 'Failed to load image.'
+          )
+        );
       };
 
       img.src = url;

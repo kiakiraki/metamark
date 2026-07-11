@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ImageProcessor } from '../imageProcessor';
 
 describe('ImageProcessor.validateImageFile', () => {
@@ -30,6 +30,37 @@ describe('ImageProcessor.validateImageFile', () => {
     const file = createMockFile('image/heif', 1024);
     const result = ImageProcessor.validateImageFile(file);
     expect(result.valid).toBe(true);
+  });
+
+  it('explains the native browser requirement when HEIC decoding fails', async () => {
+    const file = createMockFile('image/heic', 1024);
+    const revokeObjectURL = vi.fn();
+
+    class FailingImage {
+      width = 0;
+      height = 0;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onerror?.();
+      }
+    }
+
+    vi.stubGlobal('Image', FailingImage);
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:heic'),
+      revokeObjectURL,
+    });
+
+    try {
+      await expect(ImageProcessor.loadImageFile(file)).rejects.toThrow(
+        'HEIC decoding is not supported by this browser'
+      );
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:heic');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('rejects unsupported file types', () => {
