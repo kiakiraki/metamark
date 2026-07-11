@@ -147,6 +147,38 @@ describe('CanvasRenderer.fillTextWithBrandHighlights', () => {
   });
 });
 
+describe('CanvasRenderer.wrapText', () => {
+  const wrapText = (
+    CanvasRenderer as unknown as {
+      wrapText: (
+        ctx: CanvasRenderingContext2D,
+        text: string,
+        maxWidth: number
+      ) => string[];
+    }
+  ).wrapText.bind(CanvasRenderer);
+
+  it('wraps Japanese text without requiring spaces', () => {
+    const { ctx } = createMockCtx();
+    expect(wrapText(ctx, '東京都台東区浅草', 30)).toEqual([
+      '東京都',
+      '台東区',
+      '浅草',
+    ]);
+  });
+
+  it('wraps long ASCII tokens when no word boundary is available', () => {
+    const { ctx } = createMockCtx();
+    expect(wrapText(ctx, 'ABCDEFG', 30)).toEqual(['ABC', 'DEF', 'G']);
+  });
+
+  it('does not split a multi-code-point emoji grapheme', () => {
+    const { ctx } = createMockCtx();
+    const family = '👨‍👩‍👧‍👦';
+    expect(wrapText(ctx, `${family}東京`, 30)).toEqual([family, '東京']);
+  });
+});
+
 describe('CanvasRenderer.calculateOptimalSize', () => {
   it('returns original dimensions when within limits', () => {
     const result = CanvasRenderer.calculateOptimalSize(1920, 1080);

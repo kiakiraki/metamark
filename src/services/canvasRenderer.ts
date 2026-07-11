@@ -709,20 +709,27 @@ export class CanvasRenderer {
     text: string,
     maxWidth: number
   ): string[] {
+    if (!text) return [];
+    if (maxWidth <= 0) return [text];
+
     const words = text.split(' ');
     const lines: string[] = [];
     let currentLine = '';
 
     for (const word of words) {
       const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const metrics = ctx.measureText(testLine);
-
-      if (metrics.width > maxWidth && currentLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
+      if (ctx.measureText(testLine).width <= maxWidth) {
         currentLine = testLine;
+        continue;
       }
+
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+
+      const chunks = this.splitTokenByWidth(ctx, word, maxWidth);
+      lines.push(...chunks.slice(0, -1));
+      currentLine = chunks.at(-1) ?? '';
     }
 
     if (currentLine) {
@@ -730,6 +737,38 @@ export class CanvasRenderer {
     }
 
     return lines;
+  }
+
+  private static splitTokenByWidth(
+    ctx: CanvasRenderingContext2D,
+    token: string,
+    maxWidth: number
+  ): string[] {
+    if (!token || ctx.measureText(token).width <= maxWidth) return [token];
+
+    const graphemes =
+      typeof Intl.Segmenter === 'function'
+        ? Array.from(
+            new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(
+              token
+            ),
+            (part) => part.segment
+          )
+        : Array.from(token);
+    const chunks: string[] = [];
+    let current = '';
+
+    for (const grapheme of graphemes) {
+      const candidate = current + grapheme;
+      if (current && ctx.measureText(candidate).width > maxWidth) {
+        chunks.push(current);
+        current = grapheme;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) chunks.push(current);
+    return chunks;
   }
 
   private static getCaptionCameraParts(exifData: NormalizedExifData): {
