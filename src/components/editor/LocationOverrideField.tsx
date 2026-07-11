@@ -81,7 +81,10 @@ export function LocationOverrideField() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+        <h3
+          id="location-override-label"
+          className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500"
+        >
           Location
         </h3>
         <span
@@ -100,6 +103,7 @@ export function LocationOverrideField() {
 
       <input
         type="text"
+        aria-labelledby="location-override-label"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         disabled={disabled}

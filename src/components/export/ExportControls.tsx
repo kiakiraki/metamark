@@ -41,6 +41,7 @@ export function ExportControls() {
             <button
               key={format}
               onClick={() => updateCanvasSettings({ format })}
+              aria-pressed={canvasSettings.format === format}
               className={clsx(
                 'rounded-md px-4 py-1.5 font-mono text-xs font-medium uppercase tracking-wider transition-colors',
                 canvasSettings.format === format
