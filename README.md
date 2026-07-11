@@ -35,7 +35,7 @@ npm run build
 
 ## 📷 How It Works
 
-1. **Upload**: Drag & drop your photos (JPEG, PNG, HEIC)
+1. **Upload**: Drag & drop your photos (JPEG, PNG, and HEIC where the browser supports native decoding)
 2. **Extract**: Automatic EXIF metadata extraction
 3. **Style**: Choose from professional templates
 4. **Export**: Download high-quality images with beautiful overlays
