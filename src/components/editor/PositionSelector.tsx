@@ -9,7 +9,18 @@ const CORNERS: { key: PositionPreset; label: string; pos: string }[] = [
   { key: 'bottom-right', label: 'Bottom Right', pos: 'bottom-1.5 right-1.5' },
 ];
 
-export function PositionSelector() {
+const GALLERY_LAYOUTS: { key: PositionPreset; label: string }[] = [
+  { key: 'bottom-left', label: 'Bottom' },
+  { key: 'top-left', label: 'Left panel' },
+  { key: 'top-right', label: 'Right panel' },
+  { key: 'bottom-right', label: 'Split panels' },
+];
+
+export function PositionSelector({
+  variant = 'corner',
+}: {
+  variant?: 'corner' | 'gallery';
+}) {
   const currentPosition = useSettingsStore(
     (state) => state.canvasSettings.overlayPosition
   );
@@ -21,7 +32,44 @@ export function PositionSelector() {
     updateCanvasSettings({ overlayPosition: position });
   };
 
-  const activeLabel = CORNERS.find((c) => c.key === currentPosition)?.label;
+  const options = variant === 'gallery' ? GALLERY_LAYOUTS : CORNERS;
+  const activeLabel = options.find((c) => c.key === currentPosition)?.label;
+
+  if (variant === 'gallery') {
+    return (
+      <div className="space-y-3">
+        <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+          Placard Layout
+        </h3>
+        <div
+          className="grid grid-cols-2 gap-2"
+          role="group"
+          aria-label="Placard layout"
+        >
+          {GALLERY_LAYOUTS.map((layout) => {
+            const isSelected = currentPosition === layout.key;
+            return (
+              <button
+                key={layout.key}
+                type="button"
+                onClick={() => handlePositionChange(layout.key)}
+                aria-pressed={isSelected}
+                className={clsx(
+                  'rounded-md border px-2 py-2 text-xs font-medium transition-colors',
+                  'focus:outline-none focus:ring-2 focus:ring-accent/70',
+                  isSelected
+                    ? 'border-accent/70 bg-accent text-black'
+                    : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/25 hover:text-zinc-200'
+                )}
+              >
+                {layout.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
