@@ -188,6 +188,89 @@ describe('CanvasRenderer.calculateOptimalSize', () => {
   });
 });
 
+describe('CanvasRenderer frosted panel sampling', () => {
+  it('uses the render DPR instead of the device DPR for export sampling', () => {
+    const originalDevicePixelRatio = window.devicePixelRatio;
+    Object.defineProperty(window, 'devicePixelRatio', {
+      value: 2,
+      configurable: true,
+    });
+
+    const offscreenDrawImage = vi.fn();
+    const offscreenScale = vi.fn();
+    const offscreenContext = {
+      scale: offscreenScale,
+      drawImage: offscreenDrawImage,
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: 'low',
+      filter: 'none',
+    } as unknown as CanvasRenderingContext2D;
+    const offscreenCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => offscreenContext),
+    } as unknown as HTMLCanvasElement;
+    const sourceCanvas = { width: 400, height: 300 } as HTMLCanvasElement;
+    const context = {
+      canvas: sourceCanvas,
+      save: vi.fn(),
+      beginPath: vi.fn(),
+      roundRect: vi.fn(),
+      clip: vi.fn(),
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      stroke: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: '',
+    } as unknown as CanvasRenderingContext2D;
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue(offscreenCanvas);
+
+    const drawFrostedPanel = (
+      CanvasRenderer as unknown as {
+        drawFrostedPanel: (
+          ctx: CanvasRenderingContext2D,
+          x: number,
+          y: number,
+          width: number,
+          height: number,
+          radius: number,
+          scaleFactor: number,
+          backgroundColor: string,
+          devicePixelRatio: number
+        ) => void;
+      }
+    ).drawFrostedPanel.bind(CanvasRenderer);
+
+    try {
+      // Exports explicitly render at DPR 1, even on a DPR 2 display.
+      drawFrostedPanel(context, 10, 20, 30, 40, 5, 1, '#fff', 1);
+
+      expect(offscreenCanvas.width).toBe(30);
+      expect(offscreenCanvas.height).toBe(40);
+      expect(offscreenScale).toHaveBeenCalledWith(1, 1);
+      expect(offscreenDrawImage).toHaveBeenCalledWith(
+        sourceCanvas,
+        10,
+        20,
+        30,
+        40,
+        0,
+        0,
+        30,
+        40
+      );
+    } finally {
+      createElementSpy.mockRestore();
+      Object.defineProperty(window, 'devicePixelRatio', {
+        value: originalDevicePixelRatio,
+        configurable: true,
+      });
+    }
+  });
+});
+
 // loadFontCached is exported for testing. jsdom does not ship document.fonts,
 // so each test defines it as a stub. vi.resetModules() + dynamic import gives
 // each test a fresh module-level fontLoadCache so cache tests are independent.

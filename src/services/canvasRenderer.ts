@@ -482,6 +482,7 @@ export class CanvasRenderer {
       this.drawTemplate(ctx, dynamicTemplate, exifData, scaleFactor, {
         imageIsPortrait: isPortraitImage,
         overlayPosition: effectiveSettings.overlayPosition,
+        devicePixelRatio,
       });
     }
   }
@@ -1384,7 +1385,8 @@ export class CanvasRenderer {
     ctx: CanvasRenderingContext2D,
     template: Template,
     exifData: NormalizedExifData,
-    scaleFactor: number
+    scaleFactor: number,
+    devicePixelRatio: number
   ): void {
     const { style, position } = template;
     const panelX = position.x;
@@ -1407,7 +1409,8 @@ export class CanvasRenderer {
       panelH,
       layout.borderRadius,
       scaleFactor,
-      style.backgroundColor
+      style.backgroundColor,
+      devicePixelRatio
     );
 
     const innerLeft = panelX + layout.padding;
@@ -1545,10 +1548,10 @@ export class CanvasRenderer {
     h: number,
     radius: number,
     scaleFactor: number,
-    backgroundColor: string
+    backgroundColor: string,
+    devicePixelRatio: number
   ): void {
-    const dpr =
-      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const dpr = devicePixelRatio;
     const canCreateOffscreen =
       typeof document !== 'undefined' && w > 0 && h > 0;
 
@@ -1877,7 +1880,8 @@ export class CanvasRenderer {
     ctx: CanvasRenderingContext2D,
     template: Template,
     exifData: NormalizedExifData,
-    scaleFactor: number
+    scaleFactor: number,
+    devicePixelRatio: number
   ): void {
     const { style, position } = template;
     const panelX = position.x;
@@ -1895,7 +1899,8 @@ export class CanvasRenderer {
       panelH,
       layout.borderRadius,
       scaleFactor,
-      style.backgroundColor
+      style.backgroundColor,
+      devicePixelRatio
     );
 
     const headerHeight =
@@ -2261,7 +2266,8 @@ export class CanvasRenderer {
     ctx: CanvasRenderingContext2D,
     template: Template,
     exifData: NormalizedExifData,
-    scaleFactor: number
+    scaleFactor: number,
+    devicePixelRatio: number
   ): void {
     const { style, position } = template;
     const panelX = position.x;
@@ -2279,7 +2285,8 @@ export class CanvasRenderer {
       panelH,
       layout.borderRadius,
       scaleFactor,
-      style.backgroundColor
+      style.backgroundColor,
+      devicePixelRatio
     );
 
     const innerLeft = panelX + layout.padding;
@@ -3176,6 +3183,7 @@ export class CanvasRenderer {
     options?: {
       imageIsPortrait?: boolean;
       overlayPosition?: PositionPreset;
+      devicePixelRatio?: number;
     }
   ): void {
     const { style, position } = template;
@@ -3191,16 +3199,29 @@ export class CanvasRenderer {
           ctx,
           template,
           exifData,
-          scaleFactor
+          scaleFactor,
+          options?.devicePixelRatio ?? 1
         );
       } else {
-        this.drawTechnicalTemplate(ctx, template, exifData, scaleFactor);
+        this.drawTechnicalTemplate(
+          ctx,
+          template,
+          exifData,
+          scaleFactor,
+          options?.devicePixelRatio ?? 1
+        );
       }
       return;
     }
 
     if (template.customDraw === 'compact') {
-      this.drawCompactTemplate(ctx, template, exifData, scaleFactor);
+      this.drawCompactTemplate(
+        ctx,
+        template,
+        exifData,
+        scaleFactor,
+        options?.devicePixelRatio ?? 1
+      );
       return;
     }
 
