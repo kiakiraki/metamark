@@ -22,6 +22,12 @@ export function useImageUpload() {
     };
   }, []);
 
+  const clearCurrentImage = useCallback(() => {
+    exifAbortRef.current?.abort();
+    exifAbortRef.current = null;
+    clearImage();
+  }, [clearImage]);
+
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       const file = acceptedFiles[0];
@@ -55,6 +61,9 @@ export function useImageUpload() {
         extractExifData(file)
           .then((exifData) => {
             if (signal.aborted) return;
+            if (useImageStore.getState().currentImage?.id !== imageFile.id) {
+              return;
+            }
             setExifData(imageFile.id, exifData);
             const normalized = normalizeExifData(exifData);
             setNormalizedData(imageFile.id, normalized);
@@ -89,7 +98,7 @@ export function useImageUpload() {
 
   return {
     currentImage,
-    clearImage,
+    clearImage: clearCurrentImage,
     ...dropzone,
   };
 }
