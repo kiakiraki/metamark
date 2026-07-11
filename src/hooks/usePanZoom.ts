@@ -199,6 +199,15 @@ export function usePanZoom<
     if (!el || !enabled) return;
 
     const handler = (e: WheelEvent) => {
+      const zoomingIn = e.deltaY < 0;
+      const zoomingOut = e.deltaY > 0;
+      if (!zoomingIn && !zoomingOut) return;
+      if (
+        (zoomingIn && state.scale >= MAX_SCALE) ||
+        (zoomingOut && state.scale <= MIN_SCALE)
+      ) {
+        return;
+      }
       e.preventDefault();
       const m = measure();
       if (!m) return;
@@ -216,7 +225,28 @@ export function usePanZoom<
 
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
-  }, [viewportRef, enabled, measure, contentSizeFor]);
+  }, [viewportRef, enabled, measure, contentSizeFor, state.scale]);
+
+  const zoomBy = useCallback(
+    (factor: number) => {
+      if (!enabled) return;
+      const m = measure();
+      if (!m) return;
+      setState((prev) =>
+        zoomAt(
+          prev,
+          { x: 0, y: 0 },
+          prev.scale * factor,
+          m.viewport,
+          contentSizeFor(m, prev.scale)
+        )
+      );
+    },
+    [enabled, measure, contentSizeFor]
+  );
+
+  const zoomIn = useCallback(() => zoomBy(1.5), [zoomBy]);
+  const zoomOut = useCallback(() => zoomBy(1 / 1.5), [zoomBy]);
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLElement>) => {
@@ -287,6 +317,8 @@ export function usePanZoom<
     isPanning,
     isZoomed,
     reset,
+    zoomIn,
+    zoomOut,
     bind: {
       onPointerDown,
       onPointerMove,

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
-import { usePanZoom } from '@/hooks/usePanZoom';
+import { MAX_SCALE, usePanZoom } from '@/hooks/usePanZoom';
 import {
   ImageIcon,
   DownloadIcon,
@@ -33,12 +33,13 @@ export function ImageWorkspace() {
 
   // Called unconditionally — before the early return — so hook call order is
   // stable. enabled=false and resetKey=null are safe no-ops inside the hook.
-  const { scale, offset, isPanning, isZoomed, reset, bind } = usePanZoom({
-    viewportRef,
-    contentRef,
-    enabled: !!currentImage,
-    resetKey: currentImage?.id ?? null,
-  });
+  const { scale, offset, isPanning, isZoomed, reset, zoomIn, zoomOut, bind } =
+    usePanZoom({
+      viewportRef,
+      contentRef,
+      enabled: !!currentImage,
+      resetKey: currentImage?.id ?? null,
+    });
 
   const handleClearImage = () => {
     clearImage();
@@ -237,19 +238,38 @@ export function ImageWorkspace() {
           </div>
         )}
 
-        {/* Zoom indicator — visible only when zoomed in */}
-        {isZoomed && (
-          <div
-            data-zoom-ui
-            className="absolute bottom-4 right-4 flex select-none items-center gap-3 rounded-lg border border-white/10 bg-black/75 px-3 py-1.5 font-mono text-xs text-zinc-200 backdrop-blur-sm"
-            onClick={(e) => e.stopPropagation()}
-            // Without this, the viewport's onPointerDown starts a pan and
-            // captures the pointer, which retargets the ensuing click to the
-            // viewport — the Reset button would never receive it.
-            onPointerDown={(e) => e.stopPropagation()}
+        {/* Zoom controls remain available at 1x so touch-only users have an
+            entry point to zoom without relying on a mouse wheel. */}
+        <div
+          data-zoom-ui
+          className="absolute bottom-4 right-4 flex select-none items-center gap-2 rounded-lg border border-white/10 bg-black/75 px-2 py-1.5 font-mono text-xs text-zinc-200 backdrop-blur-sm"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            aria-label="Zoom out"
+            disabled={!isZoomed}
+            onClick={zoomOut}
+            className="rounded px-1.5 py-0.5 text-base leading-none text-accent transition-colors hover:text-accent/80 disabled:cursor-not-allowed disabled:text-zinc-600"
           >
-            <span>{Math.round(scale * 100)}%</span>
+            −
+          </button>
+          <span className="min-w-10 text-center">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            disabled={scale >= MAX_SCALE}
+            onClick={zoomIn}
+            className="rounded px-1.5 py-0.5 text-base leading-none text-accent transition-colors hover:text-accent/80 disabled:cursor-not-allowed disabled:text-zinc-600"
+          >
+            +
+          </button>
+          {isZoomed && (
             <button
+              type="button"
               aria-label="Reset zoom"
               onClick={(e) => {
                 e.stopPropagation();
@@ -259,8 +279,8 @@ export function ImageWorkspace() {
             >
               Reset
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Floating Controls — always visible: a hover-gated button is
