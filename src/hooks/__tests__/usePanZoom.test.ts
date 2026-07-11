@@ -205,6 +205,51 @@ describe('usePanZoom hook', () => {
     expect(wheelCalls).toHaveLength(0);
   });
 
+  it('allows page scrolling when the wheel points beyond the 1x boundary', () => {
+    renderHook(() =>
+      usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+    );
+    const event = new WheelEvent('wheel', {
+      deltaY: 100,
+      cancelable: true,
+      bubbles: true,
+    });
+
+    viewportEl.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('captures the wheel only when it can change the zoom', () => {
+    const { result } = renderHook(() =>
+      usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+    );
+    const event = new WheelEvent('wheel', {
+      deltaY: -100,
+      cancelable: true,
+      bubbles: true,
+    });
+
+    act(() => {
+      viewportEl.dispatchEvent(event);
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(result.current.scale).toBeGreaterThan(MIN_SCALE);
+  });
+
+  it('provides button-driven zoom for touch-only devices', () => {
+    const { result } = renderHook(() =>
+      usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+    );
+
+    act(() => result.current.zoomIn());
+    expect(result.current.scale).toBe(1.5);
+
+    act(() => result.current.zoomOut());
+    expect(result.current.scale).toBe(MIN_SCALE);
+  });
+
   it('M-11 regression: mid-pan resetKey change resets isPanning and scale to 1', async () => {
     const { result, rerender } = renderHook(
       ({ enabled, resetKey }: { enabled: boolean; resetKey: string | null }) =>
