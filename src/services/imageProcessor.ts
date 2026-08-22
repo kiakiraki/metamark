@@ -3,6 +3,9 @@ import type { ImageFile } from '@/types/image';
 const MAX_IMAGE_PIXELS = 64_000_000;
 const MAX_IMAGE_DIMENSION = 16_384;
 
+export const MAX_IMAGE_FILE_SIZE_MB = 50;
+export const MAX_IMAGE_FILE_SIZE_BYTES = MAX_IMAGE_FILE_SIZE_MB * 1024 * 1024;
+
 interface ImageDimensions {
   width: number;
   height: number;
@@ -140,7 +143,7 @@ export class ImageProcessor {
   }
 
   static validateImageFile(file: File): { valid: boolean; error?: string } {
-    const maxSize = 20 * 1024 * 1024; // 20MB
+    const maxSize = MAX_IMAGE_FILE_SIZE_BYTES;
     const allowedTypes = [
       'image/jpeg',
       'image/png',
@@ -158,7 +161,7 @@ export class ImageProcessor {
     if (file.size > maxSize) {
       return {
         valid: false,
-        error: 'File too large. Maximum size is 20MB.',
+        error: `File too large. Maximum size is ${MAX_IMAGE_FILE_SIZE_MB}MB.`,
       };
     }
 
