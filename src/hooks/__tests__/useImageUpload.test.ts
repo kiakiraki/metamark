@@ -4,13 +4,17 @@ import type { ExifData, NormalizedExifData } from '@/types/exif';
 import type { ImageFile } from '@/types/image';
 
 const mocks = vi.hoisted(() => ({
-  onDrop: null as ((files: File[]) => Promise<void>) | null,
+  onDrop: null as
+    | ((files: File[], rejections?: unknown[]) => Promise<void>)
+    | null,
   extractExifData: vi.fn<(file: File) => Promise<ExifData>>(),
   normalizeExifData: vi.fn<(data: ExifData) => NormalizedExifData>(),
 }));
 
 vi.mock('react-dropzone', () => ({
-  useDropzone: (options: { onDrop: (files: File[]) => Promise<void> }) => {
+  useDropzone: (options: {
+    onDrop: (files: File[], rejections?: unknown[]) => Promise<void>;
+  }) => {
     mocks.onDrop = options.onDrop;
     return {
       getRootProps: () => ({}),
@@ -27,6 +31,7 @@ vi.mock('@/services/exifExtractor', () => ({
 }));
 
 import { useImageUpload } from '../useImageUpload';
+import { useToastStore } from '../useToast';
 import { ImageProcessor } from '@/services/imageProcessor';
 import { useExifStore } from '@/stores/exifStore';
 import { useImageStore } from '@/stores/imageStore';
@@ -66,6 +71,7 @@ describe('useImageUpload', () => {
       lensOverrides: {},
       locationOverrides: {},
     });
+    useToastStore.setState({ toasts: [] });
   });
 
   afterEach(() => {
@@ -102,5 +108,72 @@ describe('useImageUpload', () => {
     expect(useExifStore.getState().exifData).toEqual({});
     expect(useExifStore.getState().normalizedData).toEqual({});
     expect(mocks.normalizeExifData).not.toHaveBeenCalled();
+  });
+
+  it('shows an error toast when dropzone rejects a file for exceeding the size limit', async () => {
+    renderHook(() => useImageUpload());
+    const file = new File(['x'], 'huge.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      await mocks.onDrop?.(
+        [],
+        [{ file, errors: [{ code: 'file-too-large', message: 'too large' }] }]
+      );
+    });
+
+    expect(useToastStore.getState().toasts).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        message: 'File too large. Maximum size is 50MB.',
+      }),
+    ]);
+    expect(useImageStore.getState().currentImage).toBeNull();
+  });
+
+  it('shows an error toast when dropzone rejects a file with an unsupported type', async () => {
+    renderHook(() => useImageUpload());
+    const file = new File(['x'], 'movie.gif', { type: 'image/gif' });
+
+    await act(async () => {
+      await mocks.onDrop?.(
+        [],
+        [{ file, errors: [{ code: 'file-invalid-type', message: 'bad type' }] }]
+      );
+    });
+
+    expect(useToastStore.getState().toasts).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        message: 'Unsupported file type. Please use JPEG, PNG, or HEIC files.',
+      }),
+    ]);
+  });
+
+  it('shows a single deduplicated toast for multiple identical rejections', async () => {
+    renderHook(() => useImageUpload());
+    const makeFile = (name: string) =>
+      new File(['x'], name, { type: 'image/jpeg' });
+
+    await act(async () => {
+      await mocks.onDrop?.(
+        [],
+        [
+          {
+            file: makeFile('a.jpg'),
+            errors: [{ code: 'too-many-files', message: 'too many' }],
+          },
+          {
+            file: makeFile('b.jpg'),
+            errors: [{ code: 'too-many-files', message: 'too many' }],
+          },
+        ]
+      );
+    });
+
+    const { toasts } = useToastStore.getState();
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.message).toBe(
+      'Only one image can be uploaded at a time.'
+    );
   });
 });

@@ -86,18 +86,18 @@ describe('ImageProcessor.validateImageFile', () => {
     expect(result.error).toContain('Unsupported file type');
   });
 
-  it('rejects files exceeding 20MB', () => {
-    const file = createMockFile('image/jpeg', 21 * 1024 * 1024);
+  it('rejects files exceeding 50MB', () => {
+    const file = createMockFile('image/jpeg', 51 * 1024 * 1024);
     // Override the size property since Blob creation won't actually allocate that much
-    Object.defineProperty(file, 'size', { value: 21 * 1024 * 1024 });
+    Object.defineProperty(file, 'size', { value: 51 * 1024 * 1024 });
     const result = ImageProcessor.validateImageFile(file);
     expect(result.valid).toBe(false);
     expect(result.error).toContain('File too large');
   });
 
-  it('accepts files at exactly 20MB', () => {
-    const file = createMockFile('image/jpeg', 20 * 1024 * 1024);
-    Object.defineProperty(file, 'size', { value: 20 * 1024 * 1024 });
+  it('accepts files at exactly 50MB', () => {
+    const file = createMockFile('image/jpeg', 50 * 1024 * 1024);
+    Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
     const result = ImageProcessor.validateImageFile(file);
     expect(result.valid).toBe(true);
   });

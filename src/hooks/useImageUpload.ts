@@ -1,10 +1,29 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
+import type { FileRejection } from 'react-dropzone';
 import { useImageStore } from '@/stores/imageStore';
 import { useExifStore } from '@/stores/exifStore';
-import { ImageProcessor } from '@/services/imageProcessor';
+import {
+  ImageProcessor,
+  MAX_IMAGE_FILE_SIZE_BYTES,
+  MAX_IMAGE_FILE_SIZE_MB,
+} from '@/services/imageProcessor';
 import { extractExifData, normalizeExifData } from '@/services/exifExtractor';
 import { useToast } from '@/hooks/useToast';
+
+function getRejectionMessage(rejection: FileRejection): string {
+  const code = rejection.errors[0]?.code;
+  switch (code) {
+    case 'file-too-large':
+      return `File too large. Maximum size is ${MAX_IMAGE_FILE_SIZE_MB}MB.`;
+    case 'file-invalid-type':
+      return 'Unsupported file type. Please use JPEG, PNG, or HEIC files.';
+    case 'too-many-files':
+      return 'Only one image can be uploaded at a time.';
+    default:
+      return 'Invalid file.';
+  }
+}
 
 export function useImageUpload() {
   const currentImage = useImageStore((state) => state.currentImage);
@@ -29,9 +48,16 @@ export function useImageUpload() {
   }, [clearImage]);
 
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       const file = acceptedFiles[0];
-      if (!file) return;
+      if (!file) {
+        for (const message of new Set(
+          fileRejections.map(getRejectionMessage)
+        )) {
+          toast.error(message);
+        }
+        return;
+      }
 
       const validation = ImageProcessor.validateImageFile(file);
 
@@ -92,7 +118,7 @@ export function useImageUpload() {
       'image/heic': ['.heic', '.heif'],
     },
     multiple: false,
-    maxSize: 20 * 1024 * 1024,
+    maxSize: MAX_IMAGE_FILE_SIZE_BYTES,
     noClick: !!currentImage,
   });
 

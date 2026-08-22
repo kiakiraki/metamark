@@ -122,7 +122,7 @@ export function ImageWorkspace() {
             </p>
 
             <p className="font-mono text-xs uppercase tracking-wider text-zinc-600">
-              JPEG · PNG · HEIC (supported browsers) — up to 20 MB
+              JPEG · PNG · HEIC (supported browsers) — up to 50 MB
             </p>
           </div>
 
