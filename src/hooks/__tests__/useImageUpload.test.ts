@@ -5,8 +5,7 @@ import type { ImageFile } from '@/types/image';
 
 const mocks = vi.hoisted(() => ({
   onDrop: null as
-    | ((files: File[], rejections?: unknown[]) => Promise<void>)
-    | null,
+    ((files: File[], rejections?: unknown[]) => Promise<void>) | null,
   extractExifData: vi.fn<(file: File) => Promise<ExifData>>(),
   normalizeExifData: vi.fn<(data: ExifData) => NormalizedExifData>(),
 }));

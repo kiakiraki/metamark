@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import clsx from 'clsx';
 
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -82,6 +82,24 @@ export function ImageWorkspace() {
     [dzRef]
   );
 
+  // react-dropzone's getRootProps() already returns an onKeyDown (Enter/Space
+  // opens the file picker). usePanZoom's bind also has an onKeyDown (arrow-key
+  // pan, +/- zoom). Spreading bind after rootProps would silently drop the
+  // dropzone's handler, so compose both instead of letting one clobber the
+  // other.
+  const dzOnKeyDown = (
+    rootProps as unknown as {
+      onKeyDown?: (e: React.KeyboardEvent<HTMLElement>) => void;
+    }
+  ).onKeyDown;
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      dzOnKeyDown?.(e);
+      bind.onKeyDown(e);
+    },
+    [dzOnKeyDown, bind]
+  );
+
   if (!currentImage) {
     return (
       <div
@@ -100,7 +118,7 @@ export function ImageWorkspace() {
       >
         <input {...getInputProps()} />
 
-        <motion.div
+        <m.div
           className="space-y-6 text-center"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -151,7 +169,7 @@ export function ImageWorkspace() {
               Choose Image
             </button>
           )}
-        </motion.div>
+        </m.div>
       </div>
     );
   }
@@ -162,9 +180,11 @@ export function ImageWorkspace() {
       <div
         {...rootProps}
         ref={setViewportEl}
+        data-canvas-viewport
+        aria-label="Image preview. Scroll or use +/- to zoom; when zoomed, use arrow keys to pan."
         className={clsx(
           'relative w-full overflow-hidden rounded-xl border border-white/[0.07] transition-all duration-300',
-          'flex justify-center bg-black/40',
+          'flex justify-center bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/70',
           {
             'ring-2 ring-accent/50': isDragActive && !isDragReject,
             'ring-2 ring-red-500/50': isDragReject,
@@ -178,6 +198,7 @@ export function ImageWorkspace() {
           touchAction: isZoomed ? 'none' : undefined,
         }}
         {...bind}
+        onKeyDown={onKeyDown}
         onClickCapture={(e) => {
           // Suppress click events while zoomed so a pan gesture that ends in
           // a pointer-up (which fires a synthetic click) cannot trigger the
@@ -207,7 +228,7 @@ export function ImageWorkspace() {
             marginTop: '20px',
           }}
         >
-          <motion.canvas
+          <m.canvas
             ref={canvasRef}
             role="img"
             aria-label={`Preview of ${currentImage.name} with EXIF overlay`}
@@ -278,7 +299,7 @@ export function ImageWorkspace() {
           >
             −
           </button>
-          <span className="min-w-10 text-center">
+          <span className="min-w-10 text-center" aria-live="polite">
             {Math.round(scale * 100)}%
           </span>
           <button

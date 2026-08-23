@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
@@ -10,6 +11,8 @@ import {
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 8;
 const WHEEL_SENSITIVITY = 0.0015;
+// Pixels panned per arrow-key press, in viewport (unscaled) coordinates.
+const KEYBOARD_PAN_STEP = 40;
 // At least this fraction of the scaled content must remain inside the
 // viewport on each axis, so the user cannot drag the image entirely
 // off-screen.
@@ -138,6 +141,14 @@ export function usePanZoom<
   resetKey = null,
 }: UsePanZoomOptions<V, C>) {
   const [state, setState] = useState<PanZoomState>(IDENTITY_STATE);
+  // Mirrors state.scale for the wheel handler below, so that effect can
+  // read the live scale without depending on state.scale itself (see
+  // comment on the wheel-listener effect). Updated in an effect (not
+  // during render) per the rules of hooks.
+  const scaleRef = useRef(state.scale);
+  useEffect(() => {
+    scaleRef.current = state.scale;
+  }, [state.scale]);
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{
     pointerId: number;
@@ -194,17 +205,23 @@ export function usePanZoom<
   // Wheel listener — attached natively because React's onWheel is passive
   // in modern browsers, so preventDefault() there would not block page
   // scroll.
+  //
+  // Deliberately NOT depending on state.scale: reading the current scale
+  // via a ref instead keeps this effect's cleanup/setup cycle tied to the
+  // viewport element's lifetime rather than firing on every zoom step
+  // (which previously caused a remove/add-listener churn on each wheel tick).
   useEffect(() => {
     const el = viewportRef.current;
     if (!el || !enabled) return;
 
     const handler = (e: WheelEvent) => {
+      const currentScale = scaleRef.current;
       const zoomingIn = e.deltaY < 0;
       const zoomingOut = e.deltaY > 0;
       if (!zoomingIn && !zoomingOut) return;
       if (
-        (zoomingIn && state.scale >= MAX_SCALE) ||
-        (zoomingOut && state.scale <= MIN_SCALE)
+        (zoomingIn && currentScale >= MAX_SCALE) ||
+        (zoomingOut && currentScale <= MIN_SCALE)
       ) {
         return;
       }
@@ -225,7 +242,7 @@ export function usePanZoom<
 
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
-  }, [viewportRef, enabled, measure, contentSizeFor, state.scale]);
+  }, [viewportRef, enabled, measure, contentSizeFor]);
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -309,6 +326,57 @@ export function usePanZoom<
     reset();
   }, [enabled, reset]);
 
+  // Keyboard a11y: arrow keys pan while zoomed, +/- zoom in/out. Mirrors the
+  // pointer-drag and wheel-zoom behavior above, reusing the same clamp logic
+  // via setState updaters.
+  const onKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLElement>) => {
+      if (!enabled) return;
+
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        zoomBy(1.5);
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        zoomBy(1 / 1.5);
+        return;
+      }
+
+      const direction: Record<string, { x: number; y: number }> = {
+        ArrowUp: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 },
+      };
+      const dir = direction[e.key];
+      if (!dir) return;
+      if (scaleRef.current <= MIN_SCALE) return; // nothing to pan at 1x
+
+      e.preventDefault();
+      const m = measure();
+      if (!m) return;
+
+      setState((prev) => {
+        const nextOffset = {
+          x: prev.offset.x - dir.x * KEYBOARD_PAN_STEP,
+          y: prev.offset.y - dir.y * KEYBOARD_PAN_STEP,
+        };
+        return {
+          ...prev,
+          offset: clampOffset(
+            nextOffset,
+            prev.scale,
+            m.viewport,
+            contentSizeFor(m, prev.scale)
+          ),
+        };
+      });
+    },
+    [enabled, zoomBy, measure, contentSizeFor]
+  );
+
   const isZoomed = state.scale > MIN_SCALE + 1e-6;
 
   return {
@@ -325,6 +393,7 @@ export function usePanZoom<
       onPointerUp: endPan,
       onPointerCancel: endPan,
       onDoubleClick,
+      onKeyDown,
     },
   };
 }
