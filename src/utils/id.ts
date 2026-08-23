@@ -25,8 +25,9 @@ export function generateId(): string {
   ) {
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     // Per RFC 4122 §4.4: set version (4) and variant (10) bits.
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    // Indices 6 and 8 are always in bounds for a fixed-size 16-byte array.
+    bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+    bytes[8] = (bytes[8]! & 0x3f) | 0x80;
     const hex = Array.from(bytes, (byte) =>
       byte.toString(16).padStart(2, '0')
     ).join('');

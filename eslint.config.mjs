@@ -16,7 +16,7 @@ const eslintConfig = tseslint.config(
     ],
   },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   reactHooks.configs.flat.recommended,
   reactRefresh.configs.vite,
   {
@@ -25,7 +25,23 @@ const eslintConfig = tseslint.config(
         ...globalsPkg.browser,
         ...globalsPkg.node,
       },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
+  },
+  // These files live outside the app's tsconfig (`src/**/*.ts(x)` +
+  // vite.config.ts), so type-aware rules can't resolve a project for them.
+  // Keep syntactic linting but drop the type-checked rule set.
+  {
+    files: [
+      '*.config.{js,mjs,cjs,ts}',
+      'scripts/**/*.mjs',
+      'e2e/**/*.ts',
+      'e2e/**/*.mjs',
+    ],
+    extends: [tseslint.configs.disableTypeChecked],
   },
   prettierConfig
 );

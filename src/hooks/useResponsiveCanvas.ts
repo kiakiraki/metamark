@@ -44,7 +44,7 @@ export function useResponsiveCanvas(
     const logicalHeight = canvas.height / devicePixelRatio;
     const canvasAspectRatio = logicalWidth / logicalHeight;
 
-    const viewport = canvas.parentElement?.parentElement;
+    const viewport = canvas.closest<HTMLElement>('[data-canvas-viewport]');
     const { maxDisplayWidth, maxDisplayHeight } = getDisplayBounds(
       viewport?.clientWidth
     );
@@ -86,7 +86,9 @@ export function useResponsiveCanvas(
     };
 
     window.addEventListener('resize', handleResize);
-    const viewport = canvasRef.current?.parentElement?.parentElement;
+    const viewport = canvasRef.current?.closest<HTMLElement>(
+      '[data-canvas-viewport]'
+    );
     const resizeObserver =
       viewport && typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(handleResize)

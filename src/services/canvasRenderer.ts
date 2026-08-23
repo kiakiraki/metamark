@@ -35,6 +35,29 @@ export function loadFontCached(
   return promise;
 }
 
+// Small bounded layout cache keyed by a content-derived string. Templates
+// that render multiple distinct layouts within a single render cycle (e.g.
+// gallery-placard split mode calling the builder once per side, or
+// preview/full-resolution renders interleaving) need more than one entry or
+// every call thrashes the cache. Capped and FIFO-evicted to stay bounded.
+const LAYOUT_CACHE_LIMIT = 8;
+
+function createLayoutCache<T>(limit: number = LAYOUT_CACHE_LIMIT) {
+  const entries = new Map<string, T>();
+  return {
+    get(key: string): T | undefined {
+      return entries.get(key);
+    },
+    set(key: string, value: T): void {
+      if (!entries.has(key) && entries.size >= limit) {
+        const oldestKey = entries.keys().next().value;
+        if (oldestKey !== undefined) entries.delete(oldestKey);
+      }
+      entries.set(key, value);
+    },
+  };
+}
+
 // Caption layout cache: avoids re-computing buildCaptionLayout multiple times
 // within a single render cycle (height calc + position calc + draw).
 interface CaptionLayout {
@@ -64,19 +87,10 @@ interface CaptionLayout {
   locationLines: string[];
 }
 
-let captionLayoutCache: {
-  key: string;
-  layout: CaptionLayout;
-} | null = null;
+const captionLayoutCache = createLayoutCache<CaptionLayout>();
 
 type TechnicalIconKind =
-  | 'lens'
-  | 'focal'
-  | 'aperture'
-  | 'shutter'
-  | 'iso'
-  | 'date'
-  | 'location';
+  'lens' | 'focal' | 'aperture' | 'shutter' | 'iso' | 'date' | 'location';
 
 interface TechnicalRow {
   kind: TechnicalIconKind;
@@ -107,10 +121,7 @@ interface TechnicalLayout {
   rowLabelOpacity: number;
 }
 
-let technicalLayoutCache: {
-  key: string;
-  layout: TechnicalLayout;
-} | null = null;
+const technicalLayoutCache = createLayoutCache<TechnicalLayout>();
 
 interface TechnicalHorizontalLayout {
   width: number;
@@ -145,10 +156,8 @@ interface TechnicalHorizontalLayout {
   itemLabelOpacity: number;
 }
 
-let technicalHorizontalLayoutCache: {
-  key: string;
-  layout: TechnicalHorizontalLayout;
-} | null = null;
+const technicalHorizontalLayoutCache =
+  createLayoutCache<TechnicalHorizontalLayout>();
 
 function isTechnicalHorizontalPosition(
   position: PositionPreset | undefined
@@ -183,10 +192,7 @@ interface CompactLayout {
   locationValue: string | null;
 }
 
-let compactLayoutCache: {
-  key: string;
-  layout: CompactLayout;
-} | null = null;
+const compactLayoutCache = createLayoutCache<CompactLayout>();
 
 interface ImprintLayout {
   padding: number;
@@ -213,10 +219,7 @@ interface ImprintLayout {
   locationOpacity: number;
 }
 
-let imprintLayoutCache: {
-  key: string;
-  layout: ImprintLayout;
-} | null = null;
+const imprintLayoutCache = createLayoutCache<ImprintLayout>();
 
 type GalleryPlacardMode = 'bottom' | 'left' | 'right' | 'split';
 type GalleryPlacardSection = 'all' | 'left-only' | 'right-only';
@@ -264,10 +267,7 @@ interface GalleryPlacardLayout {
   dividerAlpha: number;
 }
 
-let galleryPlacardLayoutCache: {
-  key: string;
-  layout: GalleryPlacardLayout;
-} | null = null;
+const galleryPlacardLayoutCache = createLayoutCache<GalleryPlacardLayout>();
 
 export class CanvasRenderer {
   static async render(options: RenderOptions): Promise<void> {
@@ -559,13 +559,13 @@ export class CanvasRenderer {
 
     // If we know where the image was drawn, align overlay to the image bounds
     const hasDrawRect = !!drawRect;
-    const imageLeft = hasDrawRect ? drawRect!.drawX : 0;
-    const imageTop = hasDrawRect ? drawRect!.drawY : 0;
+    const imageLeft = hasDrawRect ? drawRect.drawX : 0;
+    const imageTop = hasDrawRect ? drawRect.drawY : 0;
     const imageRight = hasDrawRect
-      ? drawRect!.drawX + drawRect!.drawWidth
+      ? drawRect.drawX + drawRect.drawWidth
       : canvasWidth;
     const imageBottom = hasDrawRect
-      ? drawRect!.drawY + drawRect!.drawHeight
+      ? drawRect.drawY + drawRect.drawHeight
       : canvasHeight;
 
     if (isBottomPadding) {
@@ -798,7 +798,7 @@ export class CanvasRenderer {
     if (!make && !model && exifData.camera) {
       const tokens = exifData.camera.trim().split(/\s+/);
       if (tokens.length > 1) {
-        make = tokens[0];
+        make = tokens[0] ?? null;
         model = tokens.slice(1).join(' ');
       } else {
         model = exifData.camera;
@@ -806,6 +806,60 @@ export class CanvasRenderer {
     }
 
     return { make: make || null, model: model || null };
+  }
+
+  // Normalizes exifr's "f/1.4" aperture strings to the typographic ƒ-stop
+  // form ("ƒ/1.4") used by most templates. The Compact template keeps the
+  // plain "f" form to preserve its existing look, so it does not call this.
+  private static formatApertureDisplay(aperture: string): string {
+    return aperture.replace(/^f\//i, 'ƒ/');
+  }
+
+  // Shared EXIF-item -> TechnicalRow[] construction for the Glass template's
+  // vertical (buildTechnicalLayout) and horizontal (buildTechnicalHorizontalLayout)
+  // layouts, which otherwise duplicated this row list verbatim.
+  private static buildTechnicalRows(
+    exifData: NormalizedExifData
+  ): TechnicalRow[] {
+    const rows: TechnicalRow[] = [];
+    if (exifData.lens) {
+      rows.push({ kind: 'lens', label: 'Lens', value: exifData.lens });
+    }
+    if (exifData.focalLength) {
+      rows.push({
+        kind: 'focal',
+        label: 'Focal',
+        value: exifData.focalLength,
+      });
+    }
+    if (exifData.aperture) {
+      rows.push({
+        kind: 'aperture',
+        label: 'Aperture',
+        value: this.formatApertureDisplay(exifData.aperture),
+      });
+    }
+    if (exifData.shutterSpeed) {
+      rows.push({
+        kind: 'shutter',
+        label: 'Shutter',
+        value: exifData.shutterSpeed,
+      });
+    }
+    if (exifData.iso) {
+      rows.push({ kind: 'iso', label: 'ISO', value: exifData.iso });
+    }
+    if (exifData.dateTime) {
+      rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
+    }
+    if (exifData.location) {
+      rows.push({
+        kind: 'location',
+        label: 'Location',
+        value: exifData.location,
+      });
+    }
+    return rows;
   }
 
   private static buildCaptionLayout(
@@ -822,9 +876,8 @@ export class CanvasRenderer {
       availableWidth,
       exifData,
     ]);
-    if (captionLayoutCache?.key === cacheKey) {
-      return captionLayoutCache.layout;
-    }
+    const cached = captionLayoutCache.get(cacheKey);
+    if (cached) return cached;
     const measureCtx = ctx;
     const padding = template.style.padding * scaleFactor;
     const bodyFontSize = Math.max(12, template.style.fontSize * scaleFactor);
@@ -867,7 +920,7 @@ export class CanvasRenderer {
       : [];
 
     const apertureText = exifData.aperture
-      ? exifData.aperture.replace(/^f\//i, 'ƒ/')
+      ? this.formatApertureDisplay(exifData.aperture)
       : null;
     const paramsParts = [
       exifData.focalLength,
@@ -965,7 +1018,7 @@ export class CanvasRenderer {
       dateLines,
       locationLines,
     };
-    captionLayoutCache = { key: cacheKey, layout };
+    captionLayoutCache.set(cacheKey, layout);
     return layout;
   }
 
@@ -1153,9 +1206,8 @@ export class CanvasRenderer {
     scaleFactor: number
   ): TechnicalLayout {
     const cacheKey = JSON.stringify(['technical', scaleFactor, exifData]);
-    if (technicalLayoutCache?.key === cacheKey) {
-      return technicalLayoutCache.layout;
-    }
+    const cached = technicalLayoutCache.get(cacheKey);
+    if (cached) return cached;
 
     const padding = template.style.padding * scaleFactor;
     const borderRadius = template.style.borderRadius * scaleFactor;
@@ -1185,44 +1237,7 @@ export class CanvasRenderer {
     const makeText = make ? make.toUpperCase() : null;
     const modelText = model ?? null;
 
-    const rows: TechnicalRow[] = [];
-    if (exifData.lens) {
-      rows.push({ kind: 'lens', label: 'Lens', value: exifData.lens });
-    }
-    if (exifData.focalLength) {
-      rows.push({
-        kind: 'focal',
-        label: 'Focal',
-        value: exifData.focalLength,
-      });
-    }
-    if (exifData.aperture) {
-      rows.push({
-        kind: 'aperture',
-        label: 'Aperture',
-        value: exifData.aperture.replace(/^f\//i, 'ƒ/'),
-      });
-    }
-    if (exifData.shutterSpeed) {
-      rows.push({
-        kind: 'shutter',
-        label: 'Shutter',
-        value: exifData.shutterSpeed,
-      });
-    }
-    if (exifData.iso) {
-      rows.push({ kind: 'iso', label: 'ISO', value: exifData.iso });
-    }
-    if (exifData.dateTime) {
-      rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
-    }
-    if (exifData.location) {
-      rows.push({
-        kind: 'location',
-        label: 'Location',
-        value: exifData.location,
-      });
-    }
+    const rows = this.buildTechnicalRows(exifData);
 
     const layout: TechnicalLayout = {
       padding,
@@ -1246,7 +1261,7 @@ export class CanvasRenderer {
       rowLabelToValueGap,
       rowLabelOpacity,
     };
-    technicalLayoutCache = { key: cacheKey, layout };
+    technicalLayoutCache.set(cacheKey, layout);
     return layout;
   }
 
@@ -1262,9 +1277,8 @@ export class CanvasRenderer {
       panelWidth,
       exifData,
     ]);
-    if (technicalHorizontalLayoutCache?.key === cacheKey) {
-      return technicalHorizontalLayoutCache.layout;
-    }
+    const cached = technicalHorizontalLayoutCache.get(cacheKey);
+    if (cached) return cached;
 
     const padding = template.style.padding * scaleFactor;
     const borderRadius = template.style.borderRadius * scaleFactor;
@@ -1291,44 +1305,7 @@ export class CanvasRenderer {
     const makeText = make ? make.toUpperCase() : null;
     const modelText = model ?? null;
 
-    const rows: TechnicalRow[] = [];
-    if (exifData.lens) {
-      rows.push({ kind: 'lens', label: 'Lens', value: exifData.lens });
-    }
-    if (exifData.focalLength) {
-      rows.push({
-        kind: 'focal',
-        label: 'Focal',
-        value: exifData.focalLength,
-      });
-    }
-    if (exifData.aperture) {
-      rows.push({
-        kind: 'aperture',
-        label: 'Aperture',
-        value: exifData.aperture.replace(/^f\//i, 'ƒ/'),
-      });
-    }
-    if (exifData.shutterSpeed) {
-      rows.push({
-        kind: 'shutter',
-        label: 'Shutter',
-        value: exifData.shutterSpeed,
-      });
-    }
-    if (exifData.iso) {
-      rows.push({ kind: 'iso', label: 'ISO', value: exifData.iso });
-    }
-    if (exifData.dateTime) {
-      rows.push({ kind: 'date', label: 'Date', value: exifData.dateTime });
-    }
-    if (exifData.location) {
-      rows.push({
-        kind: 'location',
-        label: 'Location',
-        value: exifData.location,
-      });
-    }
+    const rows = this.buildTechnicalRows(exifData);
 
     const innerWidth = Math.max(0, panelWidth - padding * 2);
     // Wrap to a 2-row grid once we exceed 4 items so each cell stays wide
@@ -1361,7 +1338,7 @@ export class CanvasRenderer {
         lines =
           wrapped.length <= 2
             ? wrapped
-            : [wrapped[0], wrapped.slice(1).join(' ')];
+            : [wrapped[0] ?? '', wrapped.slice(1).join(' ')];
       }
       itemValueLines.push(lines);
       itemValueMaxLines = Math.max(itemValueMaxLines, lines.length);
@@ -1423,7 +1400,7 @@ export class CanvasRenderer {
       itemValueMaxLines,
       itemLabelOpacity,
     };
-    technicalHorizontalLayoutCache = { key: cacheKey, layout };
+    technicalHorizontalLayoutCache.set(cacheKey, layout);
     return layout;
   }
 
@@ -1526,6 +1503,7 @@ export class CanvasRenderer {
 
     for (let i = 0; i < layout.rows.length; i++) {
       const row = layout.rows[i];
+      if (!row) continue;
       const col = i % layout.gridCols;
       const gridRow = Math.floor(i / layout.gridCols);
       const cellX =
@@ -1891,9 +1869,11 @@ export class CanvasRenderer {
     ctx.textAlign = 'left';
     let cx = startX;
     for (let i = 0; i < segments.length; i++) {
-      ctx.fillStyle = segments[i].color ?? prevFill;
-      ctx.fillText(segments[i].text, cx, y);
-      cx += widths[i];
+      const segment = segments[i];
+      if (!segment) continue;
+      ctx.fillStyle = segment.color ?? prevFill;
+      ctx.fillText(segment.text, cx, y);
+      cx += widths[i] ?? 0;
     }
     ctx.fillStyle = prevFill;
     ctx.textAlign = prevAlign;
@@ -2004,6 +1984,14 @@ export class CanvasRenderer {
     let cursorY = innerTop + Math.max(0, (innerHeight - contentHeight) / 2);
 
     ctx.save();
+    // Clip overflowing content to the panel bounds: contentHeight can exceed
+    // innerHeight for panels with many rows at small scale factors, which
+    // would otherwise draw text outside the frosted panel.
+    if (contentHeight > innerHeight) {
+      ctx.beginPath();
+      ctx.rect(panelX, panelY, panelW, panelH);
+      ctx.clip();
+    }
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
@@ -2066,6 +2054,12 @@ export class CanvasRenderer {
       const iconCx = innerLeft + layout.iconRadius;
       const iconCy = rowTop + layout.rowHeight / 2;
 
+      if (!row) {
+        cursorY += layout.rowHeight;
+        if (i < layout.rows.length - 1) cursorY += layout.rowGap;
+        continue;
+      }
+
       this.drawTechnicalIcon(
         ctx,
         row.kind,
@@ -2118,9 +2112,8 @@ export class CanvasRenderer {
       exifData,
       template.position.width,
     ]);
-    if (compactLayoutCache?.key === cacheKey) {
-      return compactLayoutCache.layout;
-    }
+    const cached = compactLayoutCache.get(cacheKey);
+    if (cached) return cached;
 
     const padding = template.style.padding * scaleFactor;
     const borderRadius = template.style.borderRadius * scaleFactor;
@@ -2187,7 +2180,7 @@ export class CanvasRenderer {
       dateValue,
       locationValue,
     };
-    compactLayoutCache = { key: cacheKey, layout };
+    compactLayoutCache.set(cacheKey, layout);
     return layout;
   }
 
@@ -2446,9 +2439,8 @@ export class CanvasRenderer {
     scaleFactor: number
   ): ImprintLayout {
     const cacheKey = JSON.stringify(['imprint', scaleFactor, exifData]);
-    if (imprintLayoutCache?.key === cacheKey) {
-      return imprintLayoutCache.layout;
-    }
+    const cached = imprintLayoutCache.get(cacheKey);
+    if (cached) return cached;
 
     const padding = template.style.padding * scaleFactor;
     const baseFontSize = Math.max(12, template.style.fontSize * scaleFactor);
@@ -2468,7 +2460,7 @@ export class CanvasRenderer {
     const modelText = model;
 
     const apertureText = exifData.aperture
-      ? exifData.aperture.replace(/^f\//i, 'ƒ/')
+      ? this.formatApertureDisplay(exifData.aperture)
       : null;
     const dateText = exifData.dateTime
       ? exifData.dateTime.replace(/\//g, '.')
@@ -2518,7 +2510,7 @@ export class CanvasRenderer {
       locationFontSize,
       locationOpacity: 0.78,
     };
-    imprintLayoutCache = { key: cacheKey, layout };
+    imprintLayoutCache.set(cacheKey, layout);
     return layout;
   }
 
@@ -2703,7 +2695,7 @@ export class CanvasRenderer {
     exifData: NormalizedExifData
   ): string | null {
     const aperture = exifData.aperture
-      ? exifData.aperture.replace(/^f\//i, 'ƒ/')
+      ? this.formatApertureDisplay(exifData.aperture)
       : null;
     const iso = exifData.iso
       ? /^iso\b/i.test(exifData.iso)
@@ -2751,9 +2743,8 @@ export class CanvasRenderer {
       sections,
       forceStacked,
     ]);
-    if (galleryPlacardLayoutCache?.key === cacheKey) {
-      return galleryPlacardLayoutCache.layout;
-    }
+    const cached = galleryPlacardLayoutCache.get(cacheKey);
+    if (cached) return cached;
 
     const measureCtx = ctx;
     const sansFamily = template.style.fontFamily;
@@ -2956,7 +2947,7 @@ export class CanvasRenderer {
       secondaryAlpha: 0.92,
       dividerAlpha: 0.28,
     };
-    galleryPlacardLayoutCache = { key: cacheKey, layout };
+    galleryPlacardLayoutCache.set(cacheKey, layout);
     return layout;
   }
 
@@ -3124,6 +3115,14 @@ export class CanvasRenderer {
     ctx.restore();
 
     ctx.save();
+    // Clip overflowing content to the side panel bounds: contentHeight can
+    // exceed the fixed panelHeight for long lens/location strings, which
+    // would otherwise draw text outside the panel.
+    if (layout.contentHeight > panelHeight) {
+      ctx.beginPath();
+      ctx.rect(panelX, panelY, panelWidth, panelHeight);
+      ctx.clip();
+    }
     ctx.fillStyle = style.textColor;
     ctx.textBaseline = 'alphabetic';
     ctx.shadowColor = 'transparent';
@@ -3239,7 +3238,7 @@ export class CanvasRenderer {
       return true;
     }
     const hex = trimmed.match(/^#([0-9a-f]{6})$/);
-    if (hex) {
+    if (hex?.[1]) {
       const value = parseInt(hex[1], 16);
       const r = (value >> 16) & 0xff;
       const g = (value >> 8) & 0xff;
@@ -3331,7 +3330,7 @@ export class CanvasRenderer {
 
     // Set up text rendering first to measure text
     ctx.font = `${scaledFontSize}px ${style.fontFamily}`;
-    ctx.textAlign = position.alignment as CanvasTextAlign;
+    ctx.textAlign = position.alignment;
 
     // Calculate available width for text wrapping
     const maxTextWidth = scaledWidth - scaledPadding * 2;
@@ -3432,7 +3431,7 @@ export class CanvasRenderer {
 
       // Restore context
       ctx.textAlign = prevAlign;
-      ctx.textBaseline = prevBaseline as CanvasTextBaseline;
+      ctx.textBaseline = prevBaseline;
       ctx.restore();
     } else {
       let currentY = scaledY + scaledPadding + scaledFontSize;

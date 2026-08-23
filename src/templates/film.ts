@@ -9,8 +9,10 @@ function formatFilmDate(value: string | null): string {
   const m = value.match(/(\d{4})[/\-:.](\d{2})[/\-:.](\d{2})/);
   if (m) {
     const [, yyyy, mm, dd] = m;
-    const yy = yyyy.slice(-2);
-    return `'${yy}.${mm}.${dd}`;
+    if (yyyy && mm && dd) {
+      const yy = yyyy.slice(-2);
+      return `'${yy}.${mm}.${dd}`;
+    }
   }
 
   // Fallback: try Date parsing

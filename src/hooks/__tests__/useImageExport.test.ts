@@ -144,8 +144,8 @@ describe('useImageExport', () => {
     expect(result.current.isExporting).toBe(false);
     const toasts = useToastStore.getState().toasts;
     expect(toasts).toHaveLength(1);
-    expect(toasts[0].type).toBe('error');
-    expect(toasts[0].message).toMatch(/export failed/i);
+    expect(toasts[0]!.type).toBe('error');
+    expect(toasts[0]!.message).toMatch(/export failed/i);
   });
 
   it('blob URL revoke is deferred: not called immediately, called after 10 seconds', async () => {

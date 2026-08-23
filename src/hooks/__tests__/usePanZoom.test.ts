@@ -250,7 +250,114 @@ describe('usePanZoom hook', () => {
     expect(result.current.scale).toBe(MIN_SCALE);
   });
 
-  it('M-11 regression: mid-pan resetKey change resets isPanning and scale to 1', async () => {
+  it('does not re-register the wheel listener when scale changes', () => {
+    const addSpy = vi.spyOn(viewportEl, 'addEventListener');
+    const removeSpy = vi.spyOn(viewportEl, 'removeEventListener');
+
+    const { result } = renderHook(() =>
+      usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+    );
+
+    const wheelAddCallsBefore = addSpy.mock.calls.filter(
+      ([evt]) => evt === 'wheel'
+    ).length;
+    expect(wheelAddCallsBefore).toBe(1);
+
+    act(() => result.current.zoomIn());
+    act(() => result.current.zoomIn());
+
+    const wheelAddCallsAfter = addSpy.mock.calls.filter(
+      ([evt]) => evt === 'wheel'
+    ).length;
+    const wheelRemoveCallsAfter = removeSpy.mock.calls.filter(
+      ([evt]) => evt === 'wheel'
+    ).length;
+
+    // The listener must still be registered exactly once — no
+    // remove/add churn as scale changes.
+    expect(wheelAddCallsAfter).toBe(1);
+    expect(wheelRemoveCallsAfter).toBe(0);
+  });
+
+  describe('keyboard controls', () => {
+    const makeKeyEvent = (key: string) =>
+      ({
+        key,
+        preventDefault: vi.fn(),
+      }) as unknown as React.KeyboardEvent<HTMLElement>;
+
+    it('zooms in and out with +/- keys', () => {
+      const { result } = renderHook(() =>
+        usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+      );
+
+      act(() => result.current.bind.onKeyDown(makeKeyEvent('+')));
+      expect(result.current.scale).toBe(1.5);
+
+      act(() => result.current.bind.onKeyDown(makeKeyEvent('-')));
+      expect(result.current.scale).toBe(MIN_SCALE);
+    });
+
+    it('ignores arrow keys while at 1x (nothing to pan)', () => {
+      const { result } = renderHook(() =>
+        usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+      );
+
+      act(() => result.current.bind.onKeyDown(makeKeyEvent('ArrowRight')));
+      expect(result.current.offset).toEqual({ x: 0, y: 0 });
+    });
+
+    it('pans with arrow keys once zoomed in', () => {
+      // jsdom's getBoundingClientRect() is all-zero by default, which makes
+      // clampOffset collapse any pan back to {0,0}. Stub real dimensions so
+      // the pan actually moves the offset.
+      vi.spyOn(viewportEl, 'getBoundingClientRect').mockReturnValue({
+        width: VIEWPORT.width,
+        height: VIEWPORT.height,
+        left: 0,
+        top: 0,
+        right: VIEWPORT.width,
+        bottom: VIEWPORT.height,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+      vi.spyOn(contentEl, 'getBoundingClientRect').mockReturnValue({
+        width: CONTENT.width * 2,
+        height: CONTENT.height * 2,
+        left: 0,
+        top: 0,
+        right: CONTENT.width * 2,
+        bottom: CONTENT.height * 2,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const { result } = renderHook(() =>
+        usePanZoom({ viewportRef, contentRef, enabled: true, resetKey: null })
+      );
+
+      act(() => result.current.zoomIn());
+      expect(result.current.scale).toBeGreaterThan(MIN_SCALE);
+
+      act(() => result.current.bind.onKeyDown(makeKeyEvent('ArrowRight')));
+      // Arrow-right pans content leftward (offset.x decreases) — same sign
+      // convention as the pointer-drag path.
+      expect(result.current.offset.x).toBeLessThan(0);
+    });
+
+    it('does nothing when disabled', () => {
+      const { result } = renderHook(() =>
+        usePanZoom({ viewportRef, contentRef, enabled: false, resetKey: null })
+      );
+
+      act(() => result.current.bind.onKeyDown(makeKeyEvent('+')));
+      expect(result.current.scale).toBe(MIN_SCALE);
+    });
+  });
+
+  it('M-11 regression: mid-pan resetKey change resets isPanning and scale to 1', () => {
     const { result, rerender } = renderHook(
       ({ enabled, resetKey }: { enabled: boolean; resetKey: string | null }) =>
         usePanZoom({ viewportRef, contentRef, enabled, resetKey }),
@@ -259,7 +366,7 @@ describe('usePanZoom hook', () => {
 
     // Step 1: zoom in via a native wheel event so scale > MIN_SCALE.
     // jsdom rects are zeroed but zoomAt still changes scale (math is rect-independent).
-    await act(async () => {
+    act(() => {
       viewportEl.dispatchEvent(
         new WheelEvent('wheel', {
           deltaY: -300,

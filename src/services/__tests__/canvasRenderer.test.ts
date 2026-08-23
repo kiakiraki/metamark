@@ -124,7 +124,7 @@ describe('CanvasRenderer.fillTextWithBrandHighlights', () => {
     // hypothetical "GMx" wouldn't be a word-bounded GM token
     fillTextWithBrandHighlights(ctx, 'foo GMx bar', 0, 10);
     expect(calls).toHaveLength(1);
-    expect(calls[0].fillStyle).toBe('#ffffff');
+    expect(calls[0]!.fillStyle).toBe('#ffffff');
   });
 
   it('right-aligned text shifts segments left so the right edge stays at x', () => {
@@ -183,7 +183,7 @@ describe('CanvasRenderer.fillTextEllipsis', () => {
     // that falls inside the family emoji's code-unit run.
     fillTextEllipsis(ctx, `${family}ABC`, 0, 10, 55);
     expect(calls).toHaveLength(1);
-    expect(hasLoneSurrogate(calls[0].text)).toBe(false);
+    expect(hasLoneSurrogate(calls[0]!.text)).toBe(false);
   });
 
   it('keeps a whole grapheme rather than splitting it when it fits', () => {
@@ -192,15 +192,15 @@ describe('CanvasRenderer.fillTextEllipsis', () => {
     // plus any further character.
     fillTextEllipsis(ctx, `${family}ABC`, 0, 10, 125);
     expect(calls).toHaveLength(1);
-    expect(calls[0].text).toBe(`${family}…`);
-    expect(hasLoneSurrogate(calls[0].text)).toBe(false);
+    expect(calls[0]!.text).toBe(`${family}…`);
+    expect(hasLoneSurrogate(calls[0]!.text)).toBe(false);
   });
 
   it('renders text unchanged when it already fits', () => {
     const { ctx, calls } = createMockCtx();
     fillTextEllipsis(ctx, 'short', 0, 10, 1000);
     expect(calls).toHaveLength(1);
-    expect(calls[0].text).toBe('short');
+    expect(calls[0]!.text).toBe('short');
   });
 });
 
@@ -424,6 +424,151 @@ describe('CanvasRenderer gallery-placard stacked layout (WYSIWYG)', () => {
     // scaleFactor, both must agree.
     expect(previewLayout.stacked).toBe(exportLayout.stacked);
     expect(previewLayout.stacked).toBe(false);
+  });
+});
+
+describe('CanvasRenderer.formatApertureDisplay', () => {
+  const formatApertureDisplay = (
+    CanvasRenderer as unknown as {
+      formatApertureDisplay: (aperture: string) => string;
+    }
+  ).formatApertureDisplay.bind(CanvasRenderer);
+
+  it('converts the f/ prefix to the typographic ƒ/ form', () => {
+    expect(formatApertureDisplay('f/1.4')).toBe('ƒ/1.4');
+  });
+
+  it('is case-insensitive on the f/ prefix', () => {
+    expect(formatApertureDisplay('F/2.8')).toBe('ƒ/2.8');
+  });
+
+  it('leaves strings without an f/ prefix unchanged', () => {
+    expect(formatApertureDisplay('1.4')).toBe('1.4');
+  });
+});
+
+describe('CanvasRenderer.buildTechnicalRows', () => {
+  const buildTechnicalRows = (
+    CanvasRenderer as unknown as {
+      buildTechnicalRows: (exifData: NormalizedExifData) => Array<{
+        kind: string;
+        label: string;
+        value: string;
+      }>;
+    }
+  ).buildTechnicalRows.bind(CanvasRenderer);
+
+  it('builds one row per populated EXIF field, in a fixed order, with the aperture normalized to ƒ/', () => {
+    const exifData: NormalizedExifData = {
+      camera: 'Sony α1 II',
+      cameraMake: 'Sony',
+      cameraModel: 'α1 II',
+      lens: 'FE 35mm F1.4 GM',
+      focalLength: '35mm',
+      iso: 'ISO 200',
+      aperture: 'f/1.4',
+      shutterSpeed: '1/500s',
+      dateTime: '2026/05/04 14:30:00',
+      location: 'Lisbon, Portugal',
+    };
+
+    expect(buildTechnicalRows(exifData)).toEqual([
+      { kind: 'lens', label: 'Lens', value: 'FE 35mm F1.4 GM' },
+      { kind: 'focal', label: 'Focal', value: '35mm' },
+      { kind: 'aperture', label: 'Aperture', value: 'ƒ/1.4' },
+      { kind: 'shutter', label: 'Shutter', value: '1/500s' },
+      { kind: 'iso', label: 'ISO', value: 'ISO 200' },
+      { kind: 'date', label: 'Date', value: '2026/05/04 14:30:00' },
+      { kind: 'location', label: 'Location', value: 'Lisbon, Portugal' },
+    ]);
+  });
+
+  it('omits rows for fields that are null', () => {
+    const exifData: NormalizedExifData = {
+      camera: null,
+      cameraMake: null,
+      cameraModel: null,
+      lens: null,
+      focalLength: null,
+      iso: null,
+      aperture: null,
+      shutterSpeed: null,
+      dateTime: null,
+      location: null,
+    };
+
+    expect(buildTechnicalRows(exifData)).toEqual([]);
+  });
+});
+
+describe('CanvasRenderer gallery-placard layout cache (bounded Map)', () => {
+  const buildGalleryPlacardLayoutWithOptions = (
+    CanvasRenderer as unknown as {
+      buildGalleryPlacardLayout: (
+        template: Template,
+        exifData: NormalizedExifData,
+        scaleFactor: number,
+        availableWidth: number,
+        ctx: CanvasRenderingContext2D,
+        options?: {
+          forceStacked?: boolean;
+          sections?: 'all' | 'left-only' | 'right-only';
+        }
+      ) => { stacked: boolean };
+    }
+  ).buildGalleryPlacardLayout.bind(CanvasRenderer);
+
+  const exifData: NormalizedExifData = {
+    camera: 'Sony α1 II',
+    cameraMake: 'Sony',
+    cameraModel: 'α1 II',
+    lens: 'FE 35mm F1.4 GM',
+    focalLength: '35mm',
+    iso: 'ISO 200',
+    aperture: 'f/1.4',
+    shutterSpeed: '1/500s',
+    dateTime: '2026/05/04 14:30:00',
+    location: 'Lisbon, Portugal',
+  };
+
+  it('keeps entries for interleaved distinct cache keys instead of thrashing a single slot', () => {
+    // Mirrors gallery-placard split mode, which calls the layout builder
+    // once per side panel (sections: 'left-only' then 'right-only') within
+    // the same render, and a single-entry cache would miss on every call.
+    const { ctx } = createMockCtx();
+    const scaleFactor = 1;
+    const availableWidth = 1000;
+
+    const leftFirst = buildGalleryPlacardLayoutWithOptions(
+      galleryPlacardTemplate,
+      exifData,
+      scaleFactor,
+      availableWidth,
+      ctx,
+      { forceStacked: true, sections: 'left-only' }
+    );
+    const rightFirst = buildGalleryPlacardLayoutWithOptions(
+      galleryPlacardTemplate,
+      exifData,
+      scaleFactor,
+      availableWidth,
+      ctx,
+      { forceStacked: true, sections: 'right-only' }
+    );
+    const leftSecond = buildGalleryPlacardLayoutWithOptions(
+      galleryPlacardTemplate,
+      exifData,
+      scaleFactor,
+      availableWidth,
+      ctx,
+      { forceStacked: true, sections: 'left-only' }
+    );
+
+    // Object identity indicates a cache hit (no recomputation) rather than
+    // just structural equality, so this fails if the intervening
+    // 'right-only' call evicted the 'left-only' entry.
+    expect(leftSecond).toBe(leftFirst);
+    expect(rightFirst).not.toBe(leftFirst);
   });
 });
 

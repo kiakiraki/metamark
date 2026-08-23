@@ -5,6 +5,8 @@ import { CanvasRenderer } from '@/services/canvasRenderer';
 import { ImageProcessor } from '@/services/imageProcessor';
 import { useExifStore } from '@/stores/exifStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTemplateStore } from '@/stores/templateStore';
+import { templates } from '@/templates';
 import type { NormalizedExifData } from '@/types/exif';
 import type { ProcessedImage } from '@/types/image';
 
@@ -71,6 +73,7 @@ describe('useCanvasRenderer', () => {
         scale: 1,
         overlayPosition: 'top-left',
       },
+      galleryPlacardPosition: 'top-left',
     });
   });
 
@@ -78,6 +81,7 @@ describe('useCanvasRenderer', () => {
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
+    useTemplateStore.setState({ selectedTemplate: templates.caption ?? null });
   });
 
   it('commits only the newest render when an older render finishes last', async () => {
@@ -121,7 +125,7 @@ describe('useCanvasRenderer', () => {
     });
     expect(renderSpy).toHaveBeenCalledTimes(2);
 
-    const secondOffscreenCanvas = renderSpy.mock.calls[1][0].canvas;
+    const secondOffscreenCanvas = renderSpy.mock.calls[1]![0].canvas;
     await act(async () => {
       secondRender.resolve();
       await secondRender.promise;
@@ -218,5 +222,97 @@ describe('useCanvasRenderer', () => {
     });
 
     expect(renderSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses galleryPlacardPosition for the gallery-placard template and overlayPosition for other templates', async () => {
+    const renderSpy = vi
+      .spyOn(CanvasRenderer, 'render')
+      .mockResolvedValue(undefined);
+    vi.spyOn(ImageProcessor, 'createImageElement').mockResolvedValue(
+      new Image()
+    );
+    vi.spyOn(CanvasRenderer, 'estimateBottomPaddingHeight').mockReturnValue(0);
+    vi.spyOn(
+      CanvasRenderer,
+      'estimateGalleryPlacardSidePadding'
+    ).mockReturnValue({ leftPad: 0, rightPad: 0 });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+      () =>
+        ({
+          drawImage: vi.fn(),
+        }) as unknown as CanvasRenderingContext2D
+    );
+
+    useSettingsStore.setState({
+      galleryPlacardPosition: 'bottom-right',
+    });
+
+    // Glass (caption) template: renders with canvasSettings.overlayPosition.
+    const image = makeImage('first');
+    render(<Preview image={image} />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+    expect(renderSpy.mock.calls[0]![0].settings.overlayPosition).toBe(
+      'top-left'
+    );
+
+    // Switch to gallery-placard: renders with galleryPlacardPosition instead.
+    act(() => {
+      useTemplateStore.setState({
+        selectedTemplate: templates['gallery-placard'] ?? null,
+      });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+    expect(renderSpy).toHaveBeenCalledTimes(2);
+    expect(renderSpy.mock.calls[1]![0].settings.overlayPosition).toBe(
+      'bottom-right'
+    );
+  });
+
+  it('does not re-render when galleryPlacardPosition changes while a non-gallery template is selected', async () => {
+    const renderSpy = vi
+      .spyOn(CanvasRenderer, 'render')
+      .mockResolvedValue(undefined);
+    vi.spyOn(ImageProcessor, 'createImageElement').mockResolvedValue(
+      new Image()
+    );
+    vi.spyOn(CanvasRenderer, 'estimateBottomPaddingHeight').mockReturnValue(0);
+    vi.spyOn(
+      CanvasRenderer,
+      'estimateGalleryPlacardSidePadding'
+    ).mockReturnValue({ leftPad: 0, rightPad: 0 });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+      () =>
+        ({
+          drawImage: vi.fn(),
+        }) as unknown as CanvasRenderingContext2D
+    );
+
+    // Glass (caption) template is selected by default (see beforeEach).
+    const image = makeImage('first');
+    render(<Preview image={image} />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      useSettingsStore.getState().setGalleryPlacardPosition('bottom-right');
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+
+    expect(renderSpy).toHaveBeenCalledTimes(1);
   });
 });

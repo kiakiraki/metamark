@@ -15,6 +15,7 @@ describe('TemplateSelector position controls', () => {
     useSettingsStore.getState().updateCanvasSettings({
       overlayPosition: 'top-left',
     });
+    useSettingsStore.setState({ galleryPlacardPosition: 'top-left' });
   });
 
   it('explains that Caption has a fixed position', () => {
@@ -42,7 +43,7 @@ describe('TemplateSelector position controls', () => {
     const split = screen.getByRole('button', { name: 'Split panels' });
     fireEvent.click(split);
 
-    expect(useSettingsStore.getState().canvasSettings.overlayPosition).toBe(
+    expect(useSettingsStore.getState().galleryPlacardPosition).toBe(
       'bottom-right'
     );
     expect(split.getAttribute('aria-pressed')).toBe('true');

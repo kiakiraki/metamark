@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useToastStore } from '@/hooks/useToast';
 import { XIcon } from '@/components/ui/icons';
@@ -11,7 +11,7 @@ export function ToastContainer() {
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       <AnimatePresence>
         {toasts.map((toast) => (
-          <motion.div
+          <m.div
             key={toast.id}
             role={toast.type === 'error' ? 'alert' : 'status'}
             aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
@@ -42,7 +42,7 @@ export function ToastContainer() {
             >
               <XIcon size={14} />
             </button>
-          </motion.div>
+          </m.div>
         ))}
       </AnimatePresence>
     </div>
