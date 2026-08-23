@@ -86,7 +86,7 @@ export function ExportControls() {
 
       {/* Export Button */}
       <button
-        onClick={() => exportImage()}
+        onClick={() => void exportImage()}
         disabled={!canExport || isExporting}
         aria-busy={isExporting}
         title={

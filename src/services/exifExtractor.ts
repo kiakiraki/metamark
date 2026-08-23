@@ -1,6 +1,34 @@
 import type { ExifData, NormalizedExifData } from '@/types/exif';
 import { formatSonyModel } from './cameraNameFormatter';
 
+// exifr's `parse()` return type is `Promise<any>` since the shape depends on
+// which segments were requested. This lists only the fields we actually
+// read, all optional since exifr omits any tag it doesn't find.
+interface RawExifFields {
+  Make?: string;
+  Model?: string;
+  LensMake?: string;
+  LensModel?: string;
+  FocalLength?: number;
+  ISO?: number;
+  FNumber?: number;
+  ExposureTime?: number;
+  DateTimeOriginal?: string | Date;
+  ModifyDate?: string | Date;
+  latitude?: number;
+  longitude?: number;
+  'Sub-location'?: string;
+  SubLocation?: string;
+  Sublocation?: string;
+  City?: string;
+  'Province-State'?: string;
+  ProvinceState?: string;
+  State?: string;
+  'Country-PrimaryLocationName'?: string;
+  Country?: string;
+  CountryPrimaryLocationName?: string;
+}
+
 function formatSecondsValue(value: number): string {
   if (Number.isInteger(value)) {
     return `${value}s`;
@@ -41,8 +69,8 @@ export function calculateShutterSpeed(
 }
 
 function formatCamera(camera?: {
-  make?: string;
-  model?: string;
+  make?: string | undefined;
+  model?: string | undefined;
 }): string | null {
   if (!camera?.make && !camera?.model) return null;
 
@@ -66,7 +94,10 @@ function formatStringField(value?: string): string | null {
   return trimmed ? trimmed : null;
 }
 
-function formatLens(lens?: { make?: string; model?: string }): string | null {
+function formatLens(lens?: {
+  make?: string | undefined;
+  model?: string | undefined;
+}): string | null {
   if (!lens?.make && !lens?.model) return null;
 
   if (lens.make && lens.model) {
@@ -101,10 +132,10 @@ function formatShutterSpeed(
 }
 
 function formatLocation(iptc?: {
-  sublocation?: string;
-  city?: string;
-  provinceState?: string;
-  country?: string;
+  sublocation?: string | undefined;
+  city?: string | undefined;
+  provinceState?: string | undefined;
+  country?: string | undefined;
 }): string | null {
   if (!iptc) return null;
   const parts = [iptc.sublocation, iptc.city, iptc.provinceState, iptc.country]
@@ -141,15 +172,17 @@ export function formatDateTime(dateTime?: string | Date): string | null {
       );
       if (exifMatch) {
         const [, year, month, day, hour, minute, second] = exifMatch;
-        const parsedDate = new Date(
-          parseInt(year),
-          parseInt(month) - 1,
-          parseInt(day),
-          parseInt(hour),
-          parseInt(minute),
-          parseInt(second)
-        );
-        return parsedDate.toLocaleDateString('ja-JP', DATE_FORMAT_OPTIONS);
+        if (year && month && day && hour && minute && second) {
+          const parsedDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hour),
+            parseInt(minute),
+            parseInt(second)
+          );
+          return parsedDate.toLocaleDateString('ja-JP', DATE_FORMAT_OPTIONS);
+        }
       }
       return dateTime;
     }
@@ -173,7 +206,10 @@ export async function extractExifData(file: File): Promise<ExifData> {
     const { default: exifr } = await loadExifr();
     // Defaults (tiff/ifd0/exif/gps) plus the segments we actually read;
     // icc/jfif/makerNote stay disabled to skip needless parsing.
-    const rawExif = await exifr.parse(file, { iptc: true, xmp: true });
+    const rawExif = (await exifr.parse(file, {
+      iptc: true,
+      xmp: true,
+    })) as RawExifFields | undefined;
 
     if (!rawExif) {
       return {};

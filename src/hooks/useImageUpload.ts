@@ -111,7 +111,9 @@ export function useImageUpload() {
   );
 
   const dropzone = useDropzone({
-    onDrop,
+    onDrop: (acceptedFiles, fileRejections) => {
+      void onDrop(acceptedFiles, fileRejections);
+    },
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],

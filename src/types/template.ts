@@ -19,10 +19,7 @@ export interface TemplatePosition {
 export type TemplateLayout = 'overlay' | 'bottom-padding';
 
 export type PositionPreset =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right';
+  'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 export interface FontRequirement {
   family: string;
@@ -42,11 +39,7 @@ export interface Template {
   textShadow?: boolean;
   rotateForPortrait?: boolean;
   customDraw?:
-    | 'caption'
-    | 'technical'
-    | 'compact'
-    | 'imprint'
-    | 'gallery-placard';
+    'caption' | 'technical' | 'compact' | 'imprint' | 'gallery-placard';
 }
 
 export interface TemplateField {
@@ -57,9 +50,4 @@ export interface TemplateField {
 }
 
 export type TemplatePreset =
-  | 'film'
-  | 'technical'
-  | 'compact'
-  | 'caption'
-  | 'imprint'
-  | 'gallery-placard';
+  'film' | 'technical' | 'compact' | 'caption' | 'imprint' | 'gallery-placard';

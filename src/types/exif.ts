@@ -1,31 +1,33 @@
 export interface ExifData {
   camera?: {
-    make?: string;
-    model?: string;
+    make?: string | undefined;
+    model?: string | undefined;
   };
   lens?: {
-    make?: string;
-    model?: string;
-    focalLength?: number;
+    make?: string | undefined;
+    model?: string | undefined;
+    focalLength?: number | undefined;
   };
   settings?: {
-    iso?: number;
-    fNumber?: number;
-    shutterSpeed?: string;
-    exposureTime?: number;
+    iso?: number | undefined;
+    fNumber?: number | undefined;
+    shutterSpeed?: string | undefined;
+    exposureTime?: number | undefined;
   };
   metadata?: {
-    dateTime?: string | Date;
-    gps?: {
-      latitude?: number;
-      longitude?: number;
-    };
+    dateTime?: string | Date | undefined;
+    gps?:
+      | {
+          latitude?: number;
+          longitude?: number;
+        }
+      | undefined;
   };
   iptc?: {
-    sublocation?: string;
-    city?: string;
-    provinceState?: string;
-    country?: string;
+    sublocation?: string | undefined;
+    city?: string | undefined;
+    provinceState?: string | undefined;
+    country?: string | undefined;
   };
 }
 
