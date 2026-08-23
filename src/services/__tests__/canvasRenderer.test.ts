@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasRenderer } from '../canvasRenderer';
+import { galleryPlacardTemplate } from '@/templates';
+import type { NormalizedExifData } from '@/types/exif';
+import type { Template } from '@/types/template';
 
 interface FillCall {
   text: string;
@@ -144,6 +147,60 @@ describe('CanvasRenderer.fillTextWithBrandHighlights', () => {
     fillTextWithBrandHighlights(ctx, 'X T*', 100, 10);
     expect(state.fillStyle).toBe('#000000');
     expect(state.textAlign).toBe('center');
+  });
+});
+
+// A string containing an unpaired ("lone") surrogate is not well-formed
+// UTF-16 and renders as tofu; well-formed strings never split a surrogate
+// pair or a grapheme cluster.
+function hasLoneSurrogate(text: string): boolean {
+  return !text.isWellFormed();
+}
+
+describe('CanvasRenderer.fillTextEllipsis', () => {
+  const fillTextEllipsis = (
+    CanvasRenderer as unknown as {
+      fillTextEllipsis: (
+        ctx: CanvasRenderingContext2D,
+        text: string,
+        x: number,
+        y: number,
+        maxWidth: number
+      ) => void;
+    }
+  ).fillTextEllipsis.bind(CanvasRenderer);
+
+  // A ZWJ family emoji: 4 codepoints (each a surrogate pair, 2 UTF-16 code
+  // units) joined by 3 ZWJ (1 code unit each) = 11 code units, but a single
+  // grapheme. createMockCtx measures by code-unit length, so slicing this
+  // string mid-sequence (as the old implementation did) produces a lone
+  // surrogate that renders as tofu next to the ellipsis.
+  const family = '👨‍👩‍👧‍👦';
+
+  it('never leaves a lone surrogate when truncating deep inside a multi-unit grapheme', () => {
+    const { ctx, calls } = createMockCtx();
+    // Full text is far wider than maxWidth, forcing truncation to a point
+    // that falls inside the family emoji's code-unit run.
+    fillTextEllipsis(ctx, `${family}ABC`, 0, 10, 55);
+    expect(calls).toHaveLength(1);
+    expect(hasLoneSurrogate(calls[0].text)).toBe(false);
+  });
+
+  it('keeps a whole grapheme rather than splitting it when it fits', () => {
+    const { ctx, calls } = createMockCtx();
+    // maxWidth fits the family emoji + ellipsis but not the family emoji
+    // plus any further character.
+    fillTextEllipsis(ctx, `${family}ABC`, 0, 10, 125);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toBe(`${family}…`);
+    expect(hasLoneSurrogate(calls[0].text)).toBe(false);
+  });
+
+  it('renders text unchanged when it already fits', () => {
+    const { ctx, calls } = createMockCtx();
+    fillTextEllipsis(ctx, 'short', 0, 10, 1000);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toBe('short');
   });
 });
 
@@ -300,6 +357,73 @@ describe('CanvasRenderer frosted panel sampling', () => {
         configurable: true,
       });
     }
+  });
+});
+
+describe('CanvasRenderer gallery-placard stacked layout (WYSIWYG)', () => {
+  const buildGalleryPlacardLayout = (
+    CanvasRenderer as unknown as {
+      buildGalleryPlacardLayout: (
+        template: Template,
+        exifData: NormalizedExifData,
+        scaleFactor: number,
+        availableWidth: number,
+        ctx: CanvasRenderingContext2D
+      ) => { stacked: boolean };
+    }
+  ).buildGalleryPlacardLayout.bind(CanvasRenderer);
+
+  const exifData: NormalizedExifData = {
+    camera: 'Sony α1 II',
+    cameraMake: 'Sony',
+    cameraModel: 'α1 II',
+    lens: 'FE 35mm F1.4 GM',
+    focalLength: '35mm',
+    iso: 'ISO 200',
+    aperture: 'f/1.4',
+    shutterSpeed: '1/500s',
+    dateTime: '2026/05/04 14:30:00',
+    location: 'Lisbon, Portugal',
+  };
+
+  // Two renders of the *same* portrait photo (2:3) at different
+  // resolutions: a preview-sized canvas and a full export-sized canvas.
+  // baseWidth/baseHeight scale together, so scaleFactor (min(w,h)/1000)
+  // scales proportionally too.
+  const previewBaseWidth = 600;
+  const previewBaseHeight = 900;
+  const previewScaleFactor =
+    Math.min(previewBaseWidth, previewBaseHeight) / 1000;
+
+  const exportBaseWidth = 3600;
+  const exportBaseHeight = 5400;
+  const exportScaleFactor = Math.min(exportBaseWidth, exportBaseHeight) / 1000;
+
+  it('resolves the same stacked/two-column mode at preview and export resolution', () => {
+    const { ctx: previewCtx } = createMockCtx();
+    const { ctx: exportCtx } = createMockCtx();
+
+    const previewLayout = buildGalleryPlacardLayout(
+      galleryPlacardTemplate,
+      exifData,
+      previewScaleFactor,
+      previewBaseWidth,
+      previewCtx
+    );
+    const exportLayout = buildGalleryPlacardLayout(
+      galleryPlacardTemplate,
+      exifData,
+      exportScaleFactor,
+      exportBaseWidth,
+      exportCtx
+    );
+
+    // With an absolute-pixel threshold, the 600px-wide preview would fall
+    // under the old 720px cutoff (forcing a stacked layout) while the
+    // 3600px-wide export would not — a WYSIWYG mismatch. Scaled relative to
+    // scaleFactor, both must agree.
+    expect(previewLayout.stacked).toBe(exportLayout.stacked);
+    expect(previewLayout.stacked).toBe(false);
   });
 });
 

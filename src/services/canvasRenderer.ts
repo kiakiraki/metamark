@@ -286,6 +286,47 @@ export class CanvasRenderer {
     const baseWidth = settings.width;
     const baseHeight = settings.height;
     const scaleFactor = Math.min(baseWidth, baseHeight) / 1000; // Base scale for 1000px
+
+    // Load required fonts declared by the template *before* any text
+    // measurement happens. Layout (wrapping, panel heights, etc.) is derived
+    // from measureText() below and cached by a content-only key, so if the
+    // fallback font were measured first, the cached layout would never
+    // self-correct once the real font finishes loading.
+    // Build a sample text from all non-null exif values so that
+    // unicode-range-split fonts (e.g. DotGothic16 japanese slices) pre-load
+    // the correct subset before the canvas draw calls below.
+    if (template.fontRequirements?.length) {
+      try {
+        const sampleText =
+          Object.values(exifData)
+            .filter((v): v is string => typeof v === 'string' && v.length > 0)
+            .join('') || undefined;
+        const baseFontSize = Math.max(
+          12,
+          template.style.fontSize * scaleFactor
+        );
+        const promises = template.fontRequirements.map((req) => {
+          const weights = req.weights ?? [400];
+          return Promise.all(
+            weights.map((w) => {
+              const fontSize =
+                w > 400
+                  ? Math.max(baseFontSize * 1.6, baseFontSize + 6)
+                  : baseFontSize;
+              const prefix = w !== 400 ? `${w} ` : '';
+              return loadFontCached(
+                `${prefix}${fontSize}px ${req.family}`,
+                sampleText
+              );
+            })
+          );
+        });
+        await Promise.all(promises);
+      } catch {
+        // noop
+      }
+    }
+
     const isBottomPadding = template.layout === 'bottom-padding';
     const galleryPlacardMode = this.resolveGalleryPlacardMode(
       template,
@@ -299,7 +340,8 @@ export class CanvasRenderer {
       ? galleryPlacardMode === 'left' || galleryPlacardMode === 'split'
         ? this.getGalleryPlacardSidePanelWidth(
             baseWidth,
-            galleryPlacardMode === 'split'
+            galleryPlacardMode === 'split',
+            scaleFactor
           )
         : 0
       : 0;
@@ -307,7 +349,8 @@ export class CanvasRenderer {
       ? galleryPlacardMode === 'right' || galleryPlacardMode === 'split'
         ? this.getGalleryPlacardSidePanelWidth(
             baseWidth,
-            galleryPlacardMode === 'split'
+            galleryPlacardMode === 'split',
+            scaleFactor
           )
         : 0
       : 0;
@@ -387,42 +430,6 @@ export class CanvasRenderer {
       targetPixelHeight
     );
     ctx.drawImage(drawableSource, drawX, drawY, drawWidth, drawHeight);
-
-    // Load required fonts declared by the template.
-    // Build a sample text from all non-null exif values so that
-    // unicode-range-split fonts (e.g. DotGothic16 japanese slices) pre-load
-    // the correct subset before the canvas draw calls below.
-    if (template.fontRequirements?.length) {
-      try {
-        const sampleText =
-          Object.values(exifData)
-            .filter((v): v is string => typeof v === 'string' && v.length > 0)
-            .join('') || undefined;
-        const baseFontSize = Math.max(
-          12,
-          template.style.fontSize * scaleFactor
-        );
-        const promises = template.fontRequirements.map((req) => {
-          const weights = req.weights ?? [400];
-          return Promise.all(
-            weights.map((w) => {
-              const fontSize =
-                w > 400
-                  ? Math.max(baseFontSize * 1.6, baseFontSize + 6)
-                  : baseFontSize;
-              const prefix = w !== 400 ? `${w} ` : '';
-              return loadFontCached(
-                `${prefix}${fontSize}px ${req.family}`,
-                sampleText
-              );
-            })
-          );
-        });
-        await Promise.all(promises);
-      } catch {
-        // noop
-      }
-    }
 
     // Calculate dynamic position based on overlay position setting and exif data
     const isPortraitImage = image.height > image.width;
@@ -1905,14 +1912,42 @@ export class CanvasRenderer {
       return;
     }
     const ellipsis = '…';
-    let truncated = text;
-    while (
-      truncated.length > 0 &&
-      ctx.measureText(truncated + ellipsis).width > maxWidth
-    ) {
-      truncated = truncated.slice(0, -1);
+    // Truncate on grapheme boundaries (same Intl.Segmenter approach as
+    // splitTokenByWidth) so surrogate pairs and combining/ZWJ sequences
+    // (emoji, etc.) never get split, which would otherwise leave a lone
+    // surrogate rendered as tofu next to the ellipsis.
+    const graphemes =
+      typeof Intl.Segmenter === 'function'
+        ? Array.from(
+            new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(
+              text
+            ),
+            (part) => part.segment
+          )
+        : Array.from(text);
+
+    // Binary search over grapheme-count prefixes for the longest prefix
+    // (plus the ellipsis) that still fits, instead of a linear
+    // measureText() scan removing one grapheme at a time.
+    let lo = 0;
+    let hi = graphemes.length;
+    while (lo < hi) {
+      const mid = lo + Math.ceil((hi - lo) / 2);
+      const candidateWidth = ctx.measureText(
+        graphemes.slice(0, mid).join('') + ellipsis
+      ).width;
+      if (candidateWidth <= maxWidth) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
     }
-    this.fillTextWithBrandHighlights(ctx, truncated + ellipsis, x, y);
+    this.fillTextWithBrandHighlights(
+      ctx,
+      graphemes.slice(0, lo).join('') + ellipsis,
+      x,
+      y
+    );
   }
 
   private static drawTechnicalTemplate(
@@ -2653,10 +2688,11 @@ export class CanvasRenderer {
 
   private static getGalleryPlacardSidePanelWidth(
     baseWidth: number,
-    isSplit: boolean
+    isSplit: boolean,
+    scaleFactor: number
   ): number {
     const factor = isSplit ? 0.22 : 0.3;
-    const minWidth = isSplit ? 200 : 240;
+    const minWidth = (isSplit ? 200 : 240) * scaleFactor;
     const maxWidth = baseWidth * (isSplit ? 0.32 : 0.45);
     return Math.round(
       Math.max(minWidth, Math.min(maxWidth, baseWidth * factor))
@@ -2731,7 +2767,7 @@ export class CanvasRenderer {
     const basePadding = template.style.padding * scaleFactor;
     const baseFontSize = Math.max(12, template.style.fontSize * scaleFactor);
 
-    const stacked = forceStacked || availableWidth < 720;
+    const stacked = forceStacked || availableWidth < 720 * scaleFactor;
 
     // Trim horizontal padding for narrow placards so column widths stay legible
     const paddingX = stacked ? Math.max(16, basePadding * 0.7) : basePadding;
@@ -3378,15 +3414,18 @@ export class CanvasRenderer {
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
 
-      // Render lines along the long edge
+      // Render lines along the long edge. Within the rotated local frame,
+      // each line is still drawn along the x-axis (right-aligned baseline
+      // text); successive lines must therefore be offset along the y-axis
+      // (perpendicular to the baseline), not the x-axis.
       let offset = 0;
       for (const line of allTextLines) {
         // With right alignment, x is the right edge of the text in rotated coordinates
         this.fillTextWithBrandHighlights(
           ctx,
           line,
-          isTop ? -offset : offset,
-          0
+          0,
+          isTop ? -offset : offset
         );
         offset += lineHeight;
       }
@@ -3474,7 +3513,17 @@ export class CanvasRenderer {
     const mode = this.resolveGalleryPlacardMode(template, overlayPosition);
     if (!mode || mode === 'bottom') return { leftPad: 0, rightPad: 0 };
     const isSplit = mode === 'split';
-    const width = this.getGalleryPlacardSidePanelWidth(baseWidth, isSplit);
+    // baseHeight isn't known at this call site (this only estimates a
+    // preview canvas size before the image is measured); baseWidth alone is
+    // exact for portrait images (where width already is the min dimension)
+    // and a close-enough approximation for landscape ones, corrected by the
+    // real scaleFactor once render() runs.
+    const scaleFactor = baseWidth / 1000;
+    const width = this.getGalleryPlacardSidePanelWidth(
+      baseWidth,
+      isSplit,
+      scaleFactor
+    );
     return {
       leftPad: mode === 'left' || mode === 'split' ? width : 0,
       rightPad: mode === 'right' || mode === 'split' ? width : 0,
