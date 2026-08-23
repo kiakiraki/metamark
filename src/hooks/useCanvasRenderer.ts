@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { ImageProcessor } from '@/services/imageProcessor';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import type { NormalizedExifData } from '@/types/exif';
+import type { CanvasSettings } from '@/types/canvas';
 import type { ProcessedImage } from '@/types/image';
 import type { PositionPreset, Template } from '@/types/template';
 import { getDisplayBounds, useResponsiveCanvas } from './useResponsiveCanvas';
@@ -14,6 +15,13 @@ import { useEffectiveTemplate } from './useEffectiveTemplate';
 // lifting on the source-image side. Higher values reintroduce the
 // big CSS scaling we're trying to avoid.
 const PREVIEW_OVERSAMPLE = 2;
+
+// CanvasRenderer.render (the preview path) never reads quality/format/scale
+// - only renderToBlob (export) does - so these exist purely to satisfy the
+// CanvasSettings type; their values are inert for preview rendering.
+const PREVIEW_QUALITY_PLACEHOLDER = 1;
+const PREVIEW_FORMAT_PLACEHOLDER: CanvasSettings['format'] = 'png';
+const PREVIEW_SCALE_PLACEHOLDER = 1;
 
 // Pick a render size for the preview canvas that matches the on-screen
 // display, with a fixed oversample factor. We estimate the final canvas
@@ -91,7 +99,14 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
 
   const currentExifData = useEffectiveExifData(currentImage?.id);
   const selectedTemplate = useEffectiveTemplate();
-  const canvasSettings = useSettingsStore((state) => state.canvasSettings);
+  // Preview rendering only depends on overlayPosition: width/height are
+  // computed per-render below, and quality/format only matter for export
+  // (CanvasRenderer.renderToBlob, used by useImageExport). Subscribing to
+  // the whole canvasSettings object would re-run this effect - and redecode
+  // the source image - on every quality/format tweak.
+  const overlayPosition = useSettingsStore(
+    (state) => state.canvasSettings.overlayPosition
+  );
 
   const { containerHeight, updateCanvasDisplaySize } = useResponsiveCanvas(
     canvasRef,
@@ -124,7 +139,7 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
             currentImage.height,
             selectedTemplate,
             exifData,
-            canvasSettings.overlayPosition
+            overlayPosition
           );
 
         // Render into a canvas owned by this effect run. CanvasRenderer awaits
@@ -138,7 +153,13 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
           template: selectedTemplate,
           exifData,
           settings: {
-            ...canvasSettings,
+            // quality/format/scale are export-only concerns (see
+            // useImageExport) and are irrelevant to CanvasRenderer.render;
+            // width/height are the only real inputs and are computed above.
+            quality: PREVIEW_QUALITY_PLACEHOLDER,
+            format: PREVIEW_FORMAT_PLACEHOLDER,
+            scale: PREVIEW_SCALE_PLACEHOLDER,
+            overlayPosition,
             width: renderWidth,
             height: renderHeight,
           },
@@ -174,7 +195,7 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
   }, [
     currentImage,
     selectedTemplate,
-    canvasSettings,
+    overlayPosition,
     currentExifData,
     updateCanvasDisplaySize,
   ]);

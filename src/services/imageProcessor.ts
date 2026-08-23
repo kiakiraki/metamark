@@ -1,4 +1,5 @@
 import type { ImageFile } from '@/types/image';
+import { generateId } from '@/utils/id';
 
 const MAX_IMAGE_PIXELS = 64_000_000;
 const MAX_IMAGE_DIMENSION = 16_384;
@@ -114,7 +115,7 @@ export class ImageProcessor {
 
       img.onload = () => {
         const imageFile: ImageFile = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           url,
           name: file.name,
           size: file.size,

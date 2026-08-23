@@ -1,10 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   normalizeExifData,
   calculateShutterSpeed,
   formatDateTime,
+  extractExifData,
 } from '../exifExtractor';
 import type { ExifData } from '@/types/exif';
+import exifr from 'exifr';
+
+vi.mock('exifr', () => ({
+  default: {
+    parse: vi.fn(),
+  },
+}));
 
 describe('normalizeExifData', () => {
   it('formats a complete ExifData object', () => {
@@ -133,6 +141,37 @@ describe('normalizeExifData', () => {
     expect(result.cameraMake).toBe('Sony');
     expect(result.cameraModel).toBe('A7IV');
   });
+
+  it('dedupes the maker name when the model already includes it (Nikon)', () => {
+    const exifData: ExifData = {
+      camera: { make: 'NIKON CORPORATION', model: 'NIKON Z 6' },
+    };
+
+    const result = normalizeExifData(exifData);
+    expect(result.camera).toBe('NIKON Z 6');
+    expect(result.cameraMake).toBe('NIKON CORPORATION');
+    expect(result.cameraModel).toBe('NIKON Z 6');
+  });
+
+  it('keeps make and model separate when the model does not include the make (Canon)', () => {
+    const exifData: ExifData = {
+      camera: { make: 'Canon', model: 'EOS R5' },
+    };
+
+    const result = normalizeExifData(exifData);
+    expect(result.camera).toBe('Canon EOS R5');
+  });
+
+  it('does not break the existing Sony formatting (regression)', () => {
+    const exifData: ExifData = {
+      camera: { make: 'Sony', model: 'ILCE-7M4' },
+    };
+
+    const result = normalizeExifData(exifData);
+    expect(result.camera).toBe('Sony α7 IV');
+    expect(result.cameraMake).toBe('Sony');
+    expect(result.cameraModel).toBe('α7 IV');
+  });
 });
 
 describe('calculateShutterSpeed', () => {
@@ -162,6 +201,42 @@ describe('calculateShutterSpeed', () => {
 
   it('returns decimal 0.8s for 0.8 (not 1/1s)', () => {
     expect(calculateShutterSpeed(0.8)).toBe('0.8s');
+  });
+
+  it('rounds 0.98 (near 1s) to 1s instead of 1/1s', () => {
+    expect(calculateShutterSpeed(0.98)).toBe('1s');
+  });
+
+  it('returns 1s for exactly 1.0', () => {
+    expect(calculateShutterSpeed(1.0)).toBe('1s');
+  });
+
+  it('formats a 4/3 second exposure as 1.3s, not a raw float', () => {
+    expect(calculateShutterSpeed(4 / 3)).toBe('1.3s');
+  });
+
+  it('formats a 4 second exposure as 4s, not 4.0s', () => {
+    expect(calculateShutterSpeed(4)).toBe('4s');
+  });
+});
+
+describe('extractExifData', () => {
+  it('keeps GPS coordinates at the equator/prime meridian (0, 0)', async () => {
+    vi.mocked(exifr.parse).mockResolvedValue({ latitude: 0, longitude: 0 });
+
+    const file = new File([], 'test.jpg');
+    const result = await extractExifData(file);
+
+    expect(result.metadata?.gps).toEqual({ latitude: 0, longitude: 0 });
+  });
+
+  it('omits gps when latitude/longitude are missing', async () => {
+    vi.mocked(exifr.parse).mockResolvedValue({});
+
+    const file = new File([], 'test.jpg');
+    const result = await extractExifData(file);
+
+    expect(result.metadata?.gps).toBeUndefined();
   });
 });
 

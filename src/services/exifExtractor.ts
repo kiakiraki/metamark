@@ -1,6 +1,16 @@
-import exifr from 'exifr';
 import type { ExifData, NormalizedExifData } from '@/types/exif';
 import { formatSonyModel } from './cameraNameFormatter';
+
+function formatSecondsValue(value: number): string {
+  if (Number.isInteger(value)) {
+    return `${value}s`;
+  }
+  const rounded = Math.round(value * 10) / 10;
+  const formatted = Number.isInteger(rounded)
+    ? rounded.toString()
+    : rounded.toFixed(1);
+  return `${formatted}s`;
+}
 
 export function calculateShutterSpeed(
   exposureTime?: number
@@ -8,13 +18,18 @@ export function calculateShutterSpeed(
   if (!exposureTime) return undefined;
 
   if (exposureTime >= 1) {
-    return `${exposureTime}s`;
+    return formatSecondsValue(exposureTime);
   }
 
   const denominator = Math.round(1 / exposureTime);
   const relativeError = Math.abs(1 / denominator - exposureTime) / exposureTime;
-  if (denominator >= 1 && relativeError <= 0.05) {
+
+  if (denominator >= 2 && relativeError <= 0.05) {
     return `1/${denominator}s`;
+  }
+
+  if (relativeError <= 0.05) {
+    return formatSecondsValue(1);
   }
 
   // Fall back to decimal notation; avoid rounding to "1.0" or "0.0"
@@ -32,6 +47,13 @@ function formatCamera(camera?: {
   if (!camera?.make && !camera?.model) return null;
 
   if (camera.make && camera.model) {
+    const makeMainWord = camera.make.trim().split(/\s+/)[0];
+    if (
+      makeMainWord &&
+      camera.model.toLowerCase().includes(makeMainWord.toLowerCase())
+    ) {
+      return camera.model;
+    }
     return `${camera.make} ${camera.model}`;
   }
 
@@ -138,9 +160,20 @@ export function formatDateTime(dateTime?: string | Date): string | null {
   }
 }
 
+// Loaded lazily so exifr stays out of the initial bundle until an image is dropped.
+let exifrModule: Promise<typeof import('exifr')> | undefined;
+
+function loadExifr(): Promise<typeof import('exifr')> {
+  exifrModule ??= import('exifr');
+  return exifrModule;
+}
+
 export async function extractExifData(file: File): Promise<ExifData> {
   try {
-    const rawExif = await exifr.parse(file, true);
+    const { default: exifr } = await loadExifr();
+    // Defaults (tiff/ifd0/exif/gps) plus the segments we actually read;
+    // icc/jfif/makerNote stay disabled to skip needless parsing.
+    const rawExif = await exifr.parse(file, { iptc: true, xmp: true });
 
     if (!rawExif) {
       return {};
@@ -165,7 +198,7 @@ export async function extractExifData(file: File): Promise<ExifData> {
       metadata: {
         dateTime: rawExif.DateTimeOriginal || rawExif.ModifyDate,
         gps:
-          rawExif.latitude && rawExif.longitude
+          rawExif.latitude != null && rawExif.longitude != null
             ? {
                 latitude: rawExif.latitude,
                 longitude: rawExif.longitude,

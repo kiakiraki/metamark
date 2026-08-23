@@ -18,7 +18,7 @@ interface ExifState {
   clearExifData: (imageId: string) => void;
 }
 
-function applyStringOverride(
+export function applyStringOverride(
   current: string | null,
   override: string | null | undefined
 ): string | null {

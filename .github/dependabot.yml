@@ -13,14 +13,20 @@ updates:
       timezone: 'Asia/Tokyo'
     open-pull-requests-limit: 15
     groups:
-      # Next.js / React — version coupling が強いのでまとめる
-      next-react:
+      # React — version coupling が強いのでまとめる
+      react:
         patterns:
-          - 'next'
-          - '@next/*'
           - 'react'
           - 'react-dom'
-          - 'eslint-config-next'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # Vite ecosystem
+      vite:
+        patterns:
+          - 'vite'
+          - '@vitejs/plugin-react'
+          - '@tailwindcss/vite'
         update-types:
           - 'minor'
           - 'patch'
@@ -50,10 +56,9 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
-      # UI component libraries
-      ui-components:
+      # Animation
+      animation:
         patterns:
-          - '@radix-ui/*'
           - 'framer-motion'
         update-types:
           - 'minor'

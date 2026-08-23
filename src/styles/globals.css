@@ -42,3 +42,18 @@ body {
 ::selection {
   background: rgb(232 163 61 / 0.35);
 }
+
+/* Respect the OS-level "reduce motion" preference. framer-motion is already
+ * covered by MotionConfig reducedMotion="user", but Tailwind utilities like
+ * animate-spin/animate-pulse and plain CSS transitions ignore it unless we
+ * neutralize them here. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

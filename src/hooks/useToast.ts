@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
+import { generateId } from '@/utils/id';
 
 export interface Toast {
   id: string;
@@ -17,7 +18,7 @@ export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
 
   addToast: (message, type) => {
-    const id = crypto.randomUUID();
+    const id = generateId();
     set((state) => ({
       toasts: [...state.toasts, { id, message, type }],
     }));
