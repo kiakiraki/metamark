@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
@@ -40,6 +40,23 @@ export function ImageWorkspace() {
       enabled: !!currentImage,
       resetKey: currentImage?.id ?? null,
     });
+
+  // Tracks whether an image was present on the previous render so we can
+  // detect the "image removed" transition and move focus back to the
+  // (now empty-state) dropzone root — otherwise focus falls back to <body>
+  // when the Remove button unmounts.
+  const hadImageRef = useRef(false);
+
+  useEffect(() => {
+    if (currentImage) {
+      hadImageRef.current = true;
+      return;
+    }
+    if (hadImageRef.current) {
+      hadImageRef.current = false;
+      viewportRef.current?.focus();
+    }
+  }, [currentImage]);
 
   const handleClearImage = () => {
     clearImage();
@@ -127,7 +144,10 @@ export function ImageWorkspace() {
           </div>
 
           {!isDragActive && (
-            <button className="rounded-lg bg-accent px-6 py-3 font-medium text-black transition hover:brightness-110">
+            <button
+              type="button"
+              className="rounded-lg bg-accent px-6 py-3 font-medium text-black transition hover:brightness-110"
+            >
               Choose Image
             </button>
           )}
@@ -202,12 +222,15 @@ export function ImageWorkspace() {
         </div>
 
         {/* Processing Overlay */}
-        {(isRendering || currentImage.isProcessing) && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 backdrop-blur-[2px]">
+        {isRendering && (
+          <div
+            role="status"
+            className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 backdrop-blur-[2px]"
+          >
             <div className="space-y-3 text-center text-zinc-100">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
               <p className="font-mono text-sm uppercase tracking-wider">
-                {isRendering ? 'Rendering overlay…' : 'Processing image…'}
+                Rendering overlay…
               </p>
             </div>
           </div>

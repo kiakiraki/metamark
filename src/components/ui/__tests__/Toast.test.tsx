@@ -18,7 +18,7 @@ describe('ToastContainer', () => {
     resetStore();
   });
 
-  it('renders a toast message inside a region with role="status"', () => {
+  it('renders a non-error toast inside a region with role="status"', () => {
     useToastStore.setState({
       toasts: [{ id: 'test-1', message: 'Hello world', type: 'info' }],
     });
@@ -27,6 +27,21 @@ describe('ToastContainer', () => {
     const region = screen.getByRole('status');
     expect(region).toBeDefined();
     expect(region.textContent).toContain('Hello world');
+  });
+
+  it('renders an error toast inside a region with role="alert" so it is announced assertively', () => {
+    useToastStore.setState({
+      toasts: [{ id: 'test-1b', message: 'Something broke', type: 'error' }],
+    });
+    render(<ToastContainer />);
+
+    const region = screen.getByRole('alert');
+    expect(region).toBeDefined();
+    expect(region.textContent).toContain('Something broke');
+    expect(region.getAttribute('aria-live')).toBe('assertive');
+
+    // Error toasts must not also be picked up as a polite "status" region.
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('close button has an accessible name and clicking it removes the toast', () => {
