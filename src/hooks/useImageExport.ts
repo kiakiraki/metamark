@@ -20,6 +20,12 @@ export function useImageExport() {
   const exifData = useEffectiveExifData(selectedImage?.id);
   const selectedTemplate = useEffectiveTemplate();
   const canvasSettings = useSettingsStore((state) => state.canvasSettings);
+  // gallery-placard and the corner templates share the PositionPreset enum
+  // with different meanings, so they're stored in separate settingsStore
+  // fields (see settingsStore.ts).
+  const galleryPlacardPosition = useSettingsStore(
+    (state) => state.galleryPlacardPosition
+  );
 
   // exifData is undefined while extraction is still in flight; images
   // without EXIF still resolve to an all-null NormalizedExifData, so this
@@ -42,8 +48,14 @@ export function useImageExport() {
           selectedImage.height
         );
 
+        const isGalleryPlacard =
+          selectedTemplate.customDraw === 'gallery-placard';
+
         const settings: CanvasSettings = {
           ...canvasSettings,
+          overlayPosition: isGalleryPlacard
+            ? galleryPlacardPosition
+            : canvasSettings.overlayPosition,
           ...overrides,
           width,
           height,
@@ -83,7 +95,14 @@ export function useImageExport() {
         setIsExporting(false);
       }
     },
-    [selectedImage, selectedTemplate, canvasSettings, exifData, toast]
+    [
+      selectedImage,
+      selectedTemplate,
+      canvasSettings,
+      galleryPlacardPosition,
+      exifData,
+      toast,
+    ]
   );
 
   return { exportImage, isExporting, canExport };

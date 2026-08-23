@@ -21,18 +21,35 @@ export function PositionSelector({
 }: {
   variant?: 'corner' | 'gallery';
 }) {
-  const currentPosition = useSettingsStore(
+  const isGallery = variant === 'gallery';
+
+  const overlayPosition = useSettingsStore(
     (state) => state.canvasSettings.overlayPosition
+  );
+  const galleryPlacardPosition = useSettingsStore(
+    (state) => state.galleryPlacardPosition
   );
   const updateCanvasSettings = useSettingsStore(
     (state) => state.updateCanvasSettings
   );
+  const setGalleryPlacardPosition = useSettingsStore(
+    (state) => state.setGalleryPlacardPosition
+  );
+
+  // Corner templates (Glass, etc.) and the gallery-placard template share
+  // the PositionPreset enum but assign it different meanings, so each
+  // variant reads/writes its own settingsStore field.
+  const currentPosition = isGallery ? galleryPlacardPosition : overlayPosition;
 
   const handlePositionChange = (position: PositionPreset) => {
-    updateCanvasSettings({ overlayPosition: position });
+    if (isGallery) {
+      setGalleryPlacardPosition(position);
+    } else {
+      updateCanvasSettings({ overlayPosition: position });
+    }
   };
 
-  const options = variant === 'gallery' ? GALLERY_LAYOUTS : CORNERS;
+  const options = isGallery ? GALLERY_LAYOUTS : CORNERS;
   const activeLabel = options.find((c) => c.key === currentPosition)?.label;
 
   if (variant === 'gallery') {

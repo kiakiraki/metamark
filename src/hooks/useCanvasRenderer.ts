@@ -104,9 +104,23 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
   // (CanvasRenderer.renderToBlob, used by useImageExport). Subscribing to
   // the whole canvasSettings object would re-run this effect - and redecode
   // the source image - on every quality/format tweak.
-  const overlayPosition = useSettingsStore(
+  //
+  // gallery-placard and the corner templates share the PositionPreset enum
+  // with different meanings, so they're stored in separate settingsStore
+  // fields (see settingsStore.ts). Both are subscribed here as primitives
+  // (not as a single derived object) to preserve the existing subscription
+  // granularity; only the one matching the current template drives a
+  // re-render below via isGalleryPlacard.
+  const cornerOverlayPosition = useSettingsStore(
     (state) => state.canvasSettings.overlayPosition
   );
+  const galleryPlacardPosition = useSettingsStore(
+    (state) => state.galleryPlacardPosition
+  );
+  const isGalleryPlacard = selectedTemplate?.customDraw === 'gallery-placard';
+  const overlayPosition = isGalleryPlacard
+    ? galleryPlacardPosition
+    : cornerOverlayPosition;
 
   const { containerHeight, updateCanvasDisplaySize } = useResponsiveCanvas(
     canvasRef,
@@ -187,7 +201,7 @@ export function useCanvasRenderer(currentImage: ProcessedImage | null) {
       }
     };
 
-    const timer = setTimeout(renderCanvas, 50);
+    const timer = setTimeout(() => void renderCanvas(), 50);
     return () => {
       cancelled = true;
       clearTimeout(timer);

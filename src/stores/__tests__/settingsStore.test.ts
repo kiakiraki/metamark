@@ -3,6 +3,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const STORAGE_KEY = 'metamark-settings';
 
+// Minimal shape of the persisted zustand store, just the fields these tests
+// assert on. `state` is loosely typed since the tests only care about a
+// couple of keys and the persisted shape is otherwise an implementation
+// detail of settingsStore.
+interface PersistedSettings {
+  version: number;
+  state: {
+    canvasSettings?: Record<string, unknown>;
+    galleryPlacardPosition?: string;
+  };
+}
+
+function readPersisted(): PersistedSettings {
+  return JSON.parse(
+    localStorage.getItem(STORAGE_KEY) as string
+  ) as PersistedSettings;
+}
+
 describe('settingsStore persistence', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -124,12 +142,114 @@ describe('settingsStore persistence', () => {
       expect(localStorage.getItem(STORAGE_KEY)).toBeTruthy();
     });
 
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) as string);
-    expect(parsed.version).toBe(1);
+    const parsed = readPersisted();
+    expect(parsed.version).toBe(2);
     expect(parsed.state.canvasSettings).toEqual({
       format: 'jpeg',
       quality: 0.7,
       overlayPosition: 'bottom-left',
     });
+  });
+
+  it('seeds galleryPlacardPosition from overlayPosition when migrating a version-1 entry', async () => {
+    // Simulates a localStorage entry written by the version-1 store, before
+    // galleryPlacardPosition existed: canvasSettings.overlayPosition was
+    // shared by both the corner templates and gallery-placard.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          canvasSettings: {
+            quality: 0.95,
+            format: 'png',
+            overlayPosition: 'bottom-right',
+          },
+          captionInvert: false,
+          galleryPlacardInvert: false,
+          imprintColor: 'white',
+        },
+        version: 1,
+      })
+    );
+
+    const { useSettingsStore } = await import('../settingsStore');
+
+    await waitFor(() => {
+      expect(useSettingsStore.persist.hasHydrated()).toBe(true);
+    });
+
+    const state = useSettingsStore.getState();
+    // galleryPlacardPosition must be seeded from the pre-migration
+    // overlayPosition value so existing users see no visual change.
+    expect(state.galleryPlacardPosition).toBe('bottom-right');
+    expect(state.canvasSettings.overlayPosition).toBe('bottom-right');
+  });
+
+  it('seeds galleryPlacardPosition from overlayPosition when migrating a version-0 (pre-migration) entry', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          canvasSettings: {
+            width: 999,
+            height: 999,
+            quality: 0.5,
+            format: 'jpeg',
+            scale: 2,
+            overlayPosition: 'top-right',
+          },
+          captionInvert: true,
+          galleryPlacardInvert: false,
+          imprintColor: 'black',
+        },
+      })
+    );
+
+    const { useSettingsStore } = await import('../settingsStore');
+
+    await waitFor(() => {
+      expect(useSettingsStore.persist.hasHydrated()).toBe(true);
+    });
+
+    const state = useSettingsStore.getState();
+    expect(state.galleryPlacardPosition).toBe('top-right');
+    expect(state.canvasSettings.overlayPosition).toBe('top-right');
+  });
+
+  it('persists galleryPlacardPosition independently of canvasSettings.overlayPosition', async () => {
+    const { useSettingsStore } = await import('../settingsStore');
+
+    await waitFor(() => {
+      expect(useSettingsStore.persist.hasHydrated()).toBe(true);
+    });
+
+    useSettingsStore.getState().updateCanvasSettings({
+      overlayPosition: 'bottom-left',
+    });
+    useSettingsStore.getState().setGalleryPlacardPosition('bottom-right');
+
+    await waitFor(() => {
+      const parsed = readPersisted();
+      expect(parsed.state.galleryPlacardPosition).toBe('bottom-right');
+    });
+
+    const parsed = readPersisted();
+    expect(parsed.state.canvasSettings?.overlayPosition).toBe('bottom-left');
+    expect(parsed.state.galleryPlacardPosition).toBe('bottom-right');
+    expect(parsed.version).toBe(2);
+
+    const state = useSettingsStore.getState();
+    expect(state.canvasSettings.overlayPosition).toBe('bottom-left');
+    expect(state.galleryPlacardPosition).toBe('bottom-right');
+  });
+
+  it('hydrates galleryPlacardPosition to its default on a fresh install', async () => {
+    const { useSettingsStore } = await import('../settingsStore');
+
+    await waitFor(() => {
+      expect(useSettingsStore.persist.hasHydrated()).toBe(true);
+    });
+
+    expect(useSettingsStore.getState().galleryPlacardPosition).toBe('top-left');
   });
 });
