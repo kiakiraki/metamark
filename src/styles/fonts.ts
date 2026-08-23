@@ -1,5 +1,5 @@
 // Font-family constants. The font files are self-hosted via @fontsource
-// packages whose CSS is imported in src/app/layout.tsx — no build-time
+// packages whose CSS is imported in src/main.tsx — no build-time
 // network fetches (next/font/google pulled ~120 subset files from gstatic
 // and a single transient failure broke the build, see
 // docs/font-build-failure.md).

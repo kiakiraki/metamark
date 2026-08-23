@@ -3,9 +3,10 @@ compatibility_date = "2025-08-31"
 workers_dev = false
 preview_urls = true
 
-# Static-assets-only Worker: all response headers (security + caching) come
-# from dist/_headers — the base set lives in public/_headers and the CSP line
-# is appended by scripts/generate-csp.mjs after each build.
+# Static-assets-only Worker: all response headers (security + caching,
+# including the CSP) come from dist/_headers, which Vite copies verbatim
+# from public/_headers during the build. scripts/verify-csp.mjs (the
+# postbuild hook) only verifies the copied CSP; it does not generate it.
 [assets]
 directory = "dist"
 not_found_handling = "single-page-application"
