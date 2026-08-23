@@ -4,6 +4,7 @@ import { useCanvasRenderer } from '../useCanvasRenderer';
 import { CanvasRenderer } from '@/services/canvasRenderer';
 import { ImageProcessor } from '@/services/imageProcessor';
 import { useExifStore } from '@/stores/exifStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { NormalizedExifData } from '@/types/exif';
 import type { ProcessedImage } from '@/types/image';
 
@@ -60,6 +61,16 @@ describe('useCanvasRenderer', () => {
       },
       lensOverrides: {},
       locationOverrides: {},
+    });
+    useSettingsStore.setState({
+      canvasSettings: {
+        width: 1920,
+        height: 1080,
+        quality: 0.95,
+        format: 'png',
+        scale: 1,
+        overlayPosition: 'top-left',
+      },
     });
   });
 
@@ -127,5 +138,85 @@ describe('useCanvasRenderer', () => {
       await firstRender.promise;
     });
     expect(visibleDrawImage).toHaveBeenCalledOnce();
+  });
+
+  it('does not re-render when an export-only setting like quality changes', async () => {
+    const renderSpy = vi
+      .spyOn(CanvasRenderer, 'render')
+      .mockResolvedValue(undefined);
+    vi.spyOn(ImageProcessor, 'createImageElement').mockResolvedValue(
+      new Image()
+    );
+    vi.spyOn(CanvasRenderer, 'estimateBottomPaddingHeight').mockReturnValue(0);
+    vi.spyOn(
+      CanvasRenderer,
+      'estimateGalleryPlacardSidePadding'
+    ).mockReturnValue({ leftPad: 0, rightPad: 0 });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+      () =>
+        ({
+          drawImage: vi.fn(),
+        }) as unknown as CanvasRenderingContext2D
+    );
+
+    const image = makeImage('first');
+    render(<Preview image={image} />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      useSettingsStore.getState().updateCanvasSettings({ quality: 0.5 });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-renders when overlayPosition changes', async () => {
+    const renderSpy = vi
+      .spyOn(CanvasRenderer, 'render')
+      .mockResolvedValue(undefined);
+    vi.spyOn(ImageProcessor, 'createImageElement').mockResolvedValue(
+      new Image()
+    );
+    vi.spyOn(CanvasRenderer, 'estimateBottomPaddingHeight').mockReturnValue(0);
+    vi.spyOn(
+      CanvasRenderer,
+      'estimateGalleryPlacardSidePadding'
+    ).mockReturnValue({ leftPad: 0, rightPad: 0 });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+      () =>
+        ({
+          drawImage: vi.fn(),
+        }) as unknown as CanvasRenderingContext2D
+    );
+
+    const image = makeImage('first');
+    render(<Preview image={image} />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      useSettingsStore
+        .getState()
+        .updateCanvasSettings({ overlayPosition: 'bottom-right' });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+
+    expect(renderSpy).toHaveBeenCalledTimes(2);
   });
 });

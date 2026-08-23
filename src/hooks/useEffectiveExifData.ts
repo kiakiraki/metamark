@@ -1,15 +1,6 @@
 import { useMemo } from 'react';
-import { useExifStore } from '@/stores/exifStore';
+import { applyStringOverride, useExifStore } from '@/stores/exifStore';
 import type { NormalizedExifData } from '@/types/exif';
-
-function applyStringOverride(
-  current: string | null,
-  override: string | null | undefined
-): string | null {
-  if (override === undefined) return current;
-  const trimmed = typeof override === 'string' ? override.trim() : '';
-  return trimmed ? trimmed : null;
-}
 
 export function useEffectiveExifData(
   imageId: string | undefined
